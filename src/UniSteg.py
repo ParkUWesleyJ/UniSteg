@@ -1,16 +1,14 @@
-from calendar import c
-from tkinter import E
 from PIL import Image # used for image processing
-import sys # used to exit on error/quit
+import sys            # used to exit on error/quit
 
 processingType = input("[C]onceal | [E]xtract | [Q]uit\n").lower()
 while (processingType != "c" and processingType != "e" and processingType != "q"):
     processingType = input("[C]onceal | [E]xtract | [Q]uit\n").lower()
 
-# --ON QUIT--
+# ON QUIT
 if (processingType == "q"):
     sys.exit()
-# --ON CONCEAL--
+# ON CONCEAL
 elif (processingType == "c"):
     imagePath = input("Enter path of image: ")
 
@@ -18,7 +16,7 @@ elif (processingType == "c"):
         with Image.open(imagePath) as im:
             px = im.load()
     except:
-        print("Image not found...")
+        print("Image not found.")
         sys.exit()
 
     secretMessageString = input("Enter your secret message: ")
@@ -27,12 +25,12 @@ elif (processingType == "c"):
     secretMessageBinary = ""
 
     for byte in secretMessageByteArray:
-        # adds leading zeros
+        # Adds leading zeros
         for bit in range(8-len(str(bin(byte)[2:]))):
             secretMessageBinary += "0"
         secretMessageBinary += str(bin(byte)[2:])
 
-    # forces the greatest significant bit of the next byte to be a one, which makes anything after the secret message not show up when extracted
+    # Forces the greatest significant bit of the next byte to be a one, which makes anything after the secret message not show up when extracted
     secretMessageBinary += "1"
 
     messagePosition = 0
@@ -73,7 +71,7 @@ elif (processingType == "c"):
 
     im.save('stego.png')
     print("Successfully created stegimage.")
-# --ON EXTRACT--
+# ON EXTRACT
 elif (processingType == "e"):
     imagePath = input("Enter path of image: ")
     binaryMessage = ""
@@ -83,7 +81,7 @@ elif (processingType == "e"):
         with Image.open(imagePath) as im:
             px = im.load()
     except:
-        print("Image not found...")
+        print("Image not found.")
         sys.exit()
 
     # Creates a string of every least significant bit in every color of every pixel
@@ -92,7 +90,7 @@ elif (processingType == "e"):
             for color in range(0, 3):
                 binaryMessage += str(px[row, col][color]%2)
 
-    # converts string into a format that python can decode
+    # Converts string into a format that python can decode
     binaryMessage = int(binaryMessage, 2)
     binaryArray = binaryMessage.to_bytes((binaryMessage.bit_length() + 7) // 8, "big")
 
@@ -106,3 +104,5 @@ elif (processingType == "e"):
             break
 
     print("Decoded message: \"" + binaryArray[0:lastValidCharacter].decode("ascii") + "\"")
+
+# END
