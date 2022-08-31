@@ -1,3 +1,11 @@
+#########################################################
+# UniSteg v0.1
+# Wesley Jacobs
+#
+# Currently an exploratory program that conceals and
+# extracts message to and from images.
+#########################################################
+
 from PIL import Image # used for image processing
 import sys            # used to exit on error/quit
 
