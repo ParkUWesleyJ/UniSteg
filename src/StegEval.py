@@ -1,10 +1,10 @@
 #########################################################
-# StegEval v0.4
+# StegEval v0.5
 # Wesley Jacobs
 #
-# A program consisting of several algorithms used to
-# guage distortion levels and security of images before
-# and after image hiding.
+# A tool used to compare an original image and its
+# stegimage counterpart to detect differences in
+# distortion and pixel values.
 #########################################################
 
 import sys                            # used to exit on error/quit
@@ -85,37 +85,32 @@ def calcQI(imO, imS):
 
 # Gets Pixel Value Difference Histogram
 def showHist(imO, imS):
-    # reshapes original image array to subtract pairs of pixel avalues
-    reshapedO = np.array(imO, dtype=np.int16).reshape(2, np.array(imO).size // 2)
-    # array of difference between pairs of pixel values in original image
-    pixelDiffO = np.subtract(reshapedO[0], reshapedO[1])
-    # reshapes stego image array to subtract pairs of pixel avalues
-    reshapedS = np.array(imS, dtype=np.int16).reshape(2, np.array(imS).size // 2)
-    # array of difference between pairs of pixel values in stego image
-    pixelDiffS = np.subtract(reshapedS[0], reshapedS[1])
+    # gets an array of individual pixel average values for original image
+    avgPixelO = np.mean(np.array(imO, dtype=np.int16).reshape(np.array(imO).size // 3, 3), axis=1)
+    # gets an array of individual pixel average values for stego image
+    avgPixelS = np.mean(np.array(imS, dtype=np.int16).reshape(np.array(imS).size // 3, 3), axis=1)
 
-    # average of pixel value difference in original image
-    pixelDiffAvgO = np.mean(pixelDiffO)
-    # standard deviation of pixel value difference in original image
-    pixelDiffStdO = np.std(pixelDiffO)
-    # average of pixel value difference in stego image
-    pixelDiffAvgS = np.mean(pixelDiffS)
-    # standard deviation of pixel value difference in stego image
-    pixelDiffStdS = np.std(pixelDiffS)
+    plt.hist(x=avgPixelO, bins=range(int(avgPixelO.min()), int(avgPixelO.max()) + 1), color="#000000", alpha=0.5, histtype="step", label="Original")
+    plt.hist(x=avgPixelS, bins=range(int(avgPixelS.min()), int(avgPixelS.max()) + 1), color="#ff0000", alpha=0.5, histtype="step", label="Stego")
 
-    plt.hist(x=pixelDiffO, bins=range(pixelDiffO.min(), pixelDiffO.max() + 1), color="#000000", alpha=0.5, histtype="step", label="Original")
-    plt.hist(x=pixelDiffS, bins=range(pixelDiffS.min(), pixelDiffS.max() + 1), color="#ff1100", alpha=0.5, histtype="step", label="Stego")
+    # several values that can be used to see differences between images
+    avgO = np.mean(avgPixelO)
+    avgS = np.mean(avgPixelS)
+    stdO = np.std(avgPixelO)
+    stdS = np.std(avgPixelS)
+    minmaxO = (np.max(avgPixelO), np.min(avgPixelO))
+    minmaxS = (np.max(avgPixelS), np.min(avgPixelS))
 
-    plt.xlabel("Pixel Difference")
+    plt.xlabel("Pixel values")
     plt.ylabel("Occurences")
-    plt.title("Pixel Value Difference Histogram")
+    plt.title("Pixel Value Histogram")
     plt.legend()
 
     plt.tight_layout()
 
     plt.show()
 
-    return [pixelDiffAvgO, pixelDiffStdO, pixelDiffAvgS, pixelDiffStdS]
+    return [avgO, avgS, stdO, stdS, minmaxO, minmaxS]
 
 # DRIVER CODE
 imagePathOriginal = input("Enter path of original image: ")
@@ -124,10 +119,14 @@ imagePathStego = input("Enter path of stego image: ")
 try:
     with Image.open(imagePathOriginal) as imO:
         pxO = imO.load()
+except:
+    print("Original image doesn't exist")
+    sys.exit()
+try:
     with Image.open(imagePathStego) as imS:
         pxS = imS.load()
 except:
-    print("One or more images not found.")
+    print("Stego image doesn't exist.")
     sys.exit()
 
 if (imO.size != imS.size):
@@ -145,12 +144,10 @@ print("{:<5} | {:<20} | Higher = Better".format("QI", qi))
 
 histInfo = showHist(imO, imS)
 
-print("\n--==PIXEL VALUE DIFFERENCE HISTOGRAM INFO==--")
+print("\n--==HISTOGRAM INFORMATION==--")
 print("{:<20} | {:<20}".format("Mean Original", histInfo[0]))
-print("{:<20} | {:<20}".format("StdDev Original", histInfo[1]))
-print("{:<20} | {:<20}".format("Mean Stego", histInfo[2]))
+print("{:<20} | {:<20}".format("Mean Stego", histInfo[1]))
+print("{:<20} | {:<20}".format("StdDev Original", histInfo[2]))
 print("{:<20} | {:<20}".format("StdDev Stego", histInfo[3]))
-
-print("\n--==RS ANALYSIS INFO==--")
-
-# END
+print("{:<20} | {:<20}".format("MinMax Original", str(histInfo[4])))
+print("{:<20} | {:<20}".format("MinMax Stego", str(histInfo[5])))
