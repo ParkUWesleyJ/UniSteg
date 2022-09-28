@@ -1,5 +1,5 @@
 #########################################################
-# StegEval v0.5
+# StegEval v0.6
 # Wesley Jacobs
 #
 # A tool used to compare an original image and its
@@ -7,51 +7,32 @@
 # distortion and pixel values.
 #########################################################
 
-import sys                            # used to exit on error/quit
-
-try:
-    from json.encoder import INFINITY # used for case where PSNR is undefined
-except:
-    print("Missing json.encode module")
-    sys.exit()
-
-try:
-    import math                       # used for log10
-except:
-    print("Missing math module")
-    sys.exit()
+import sys                        # used to exit on error/quit
+from json.encoder import INFINITY # used for case where PSNR is undefined
+import math                       # used for log10
+import os.path                    # used to check if file exists
 
 try:
     import numpy as np                # used to calculate averages and sums of Image pixels more efficiently
-except:
-    print("Missing NumPy module")
-    sys.exit()
-
-try:
     from PIL import Image             # used for image processing
-except:
-    print("Missing Pillow module")
-    sys.exit()
-
-try:
     import matplotlib.pyplot as plt   # used to visually represent histograms
 except:
-    print("Missing matplotlib module")
+    print("Missing a module. Did you run 'pip install -r modules.txt'?")
     sys.exit()
 
 #########################################################
 
 # Calculates Mean Square Error (MSE)
-def calcMSE(imO, imS):
-    # get the squared difference between all pixels then get the average
-    mse = np.mean(np.square(np.subtract(imO, imS)))
+def calc_mse(img_original, img_stego):
+    # Get the squared difference between all pixels then get the average
+    mse = np.mean(np.square(np.subtract(img_original, img_stego, dtype=np.int32)))
 
     return round(mse, 10)
 
 #########################################################
 
 # Calculates Peak Signal-to-Noise Ratio (PSNR)
-def calcPSNR(mse):
+def calc_psnr(mse):
     if (mse == 0):
         psnr = INFINITY
     else:
@@ -62,45 +43,46 @@ def calcPSNR(mse):
 #########################################################
 
 # Calculates Quality Index (QI)
-def calcQI(imO, imS):
-    # average pixel value in original image
-    avgO = np.mean(imO)
-    # average pixel value in stego-image
-    avgS = np.mean(imS)
-    # standard deviation of pixel values in original image
-    stdDevO = np.sum(np.subtract(imS, avgS) ** 2) / (3*imO.size[0]*imO.size[1]-1)
-    # standard deviation of pixel values in stego image
-    stdDevS = np.sum(np.subtract(imO, avgO) ** 2) / (3*imO.size[0]*imO.size[1]-1)
-    # covariance of both original and stego image pixel values
-    covariance = np.sum(np.subtract(imO, avgO) * np.subtract(imS, avgS)) / (3*imO.size[0]*imO.size[1]-1)
+def calc_qi(img_original, img_stego):
+    # Average pixel values
+    avg_original = np.mean(img_original)
+    avg_stego = np.mean(img_stego)
 
-    if (stdDevO == 0 and stdDevS == 0):
-        qi = 1.0
+    # Standard deviation of pixel values
+    std_original = np.sum(np.subtract(img_original, avg_original) ** 2) / (3*img_original.size[0]*img_original.size[1]-1)
+    std_stego = np.sum(np.subtract(img_stego, avg_stego) ** 2) / (3*img_stego.size[0]*img_stego.size[1]-1)
+
+    # Covariance of both original and stego image pixel values
+    covariance = np.sum(np.subtract(img_original, avg_original) * np.subtract(img_stego, avg_stego)) / (3*img_original.size[0]*img_original.size[1]-1)
+
+    if (std_original == 0 and std_stego == 0):
+        qi = INFINITY
     else:
-        qi = (4 * covariance * avgO * avgS) / ((stdDevO + stdDevS) * ((avgO ** 2) + (avgS ** 2)))
+        qi = (4 * covariance * avg_original * avg_stego) / ((std_original + std_stego) * ((avg_original ** 2) + (avg_stego ** 2)))
 
     return round(qi, 10)
 
 #########################################################
 
 # Gets Pixel Value Difference Histogram
-def showHist(imO, imS):
+def show_hist(img_original, img_stego):
     # gets an array of individual pixel average values for original image
-    avgPixelO = np.mean(np.array(imO, dtype=np.int16).reshape(np.array(imO).size // 3, 3), axis=1)
+    avg_pix_array_original = np.mean(np.array(img_original, dtype=np.int32).reshape(np.array(img_original).size // 3, 3), axis=1)
     # gets an array of individual pixel average values for stego image
-    avgPixelS = np.mean(np.array(imS, dtype=np.int16).reshape(np.array(imS).size // 3, 3), axis=1)
+    avg_pix_array_stego = np.mean(np.array(img_stego, dtype=np.int32).reshape(np.array(img_stego).size // 3, 3), axis=1)
 
-    plt.hist(x=avgPixelO, bins=range(int(avgPixelO.min()), int(avgPixelO.max()) + 1), color="#000000", alpha=0.5, histtype="step", label="Original")
-    plt.hist(x=avgPixelS, bins=range(int(avgPixelS.min()), int(avgPixelS.max()) + 1), color="#ff0000", alpha=0.5, histtype="step", label="Stego")
+    y, x, _ = plt.hist(x=avg_pix_array_original, bins=range(0, 256), color="#000000", alpha=0.5, histtype="step", label="Original")
+    plt.hist(x=avg_pix_array_stego, bins=range(0, 256), color="#ff0000", alpha=0.5, histtype="step", label="Stego")
 
     # several values that can be used to see differences between images
-    avgO = np.mean(avgPixelO)
-    avgS = np.mean(avgPixelS)
-    stdO = np.std(avgPixelO)
-    stdS = np.std(avgPixelS)
-    minmaxO = (np.max(avgPixelO), np.min(avgPixelO))
-    minmaxS = (np.max(avgPixelS), np.min(avgPixelS))
+    avg_original = np.mean(avg_pix_array_original)
+    avg_stego = np.mean(avg_pix_array_stego)
+    std_original = np.std(avg_pix_array_original)
+    std_stego = np.std(avg_pix_array_stego)
+    minmax_original = (np.max(avg_pix_array_original), np.min(avg_pix_array_original))
+    minmax_stego = (np.max(avg_pix_array_stego), np.min(avg_pix_array_stego))
 
+    plt.ylim([0, y.max()+1])
     plt.xlabel("Pixel values")
     plt.ylabel("Occurences")
     plt.title("Pixel Value Histogram")
@@ -110,44 +92,72 @@ def showHist(imO, imS):
 
     plt.show()
 
-    return [avgO, avgS, stdO, stdS, minmaxO, minmaxS]
+    return [avg_original, avg_stego, std_original, std_stego, minmax_original, minmax_stego]
+
+#########################################################
 
 # DRIVER CODE
-imagePathOriginal = input("Enter path of original image: ")
-imagePathStego = input("Enter path of stego image: ")
 
+#########################################################
+
+# Gets original image
+original_path = input("Enter path of original image (Q to quit): ")
+
+while (not os.path.isfile(original_path) and original_path.lower() != "q"):
+    original_path = input("Invalid path. Enter path of original image (Q to quit): ")
+
+if (original_path.lower() == "q"):
+    sys.exit()
+
+# Tries to open image into RGB mode
 try:
-    with Image.open(imagePathOriginal) as imO:
-        pxO = imO.load()
+    with Image.open(original_path).convert("RGB") as img_original:
+        pixels_original = img_original.load()
+        print("Image dimensions: " + str(img_original.size[0]) + "x" + str(img_original.size[1]))
 except:
-    print("Original image doesn't exist")
+    print("Unable to get image into correct format. (Only works with RGB images)")
     sys.exit()
+
+# Gets stego image
+stego_path = input("Enter path of stego image (Q to quit): ")
+
+while (not os.path.isfile(stego_path) and stego_path.lower() != "q"):
+    stego_path = input("Invalid path. Enter path of stego image (Q to quit): ")
+
+if (stego_path.lower() == "q"):
+    sys.exit()
+
+# Tries to open image into RGB mode
 try:
-    with Image.open(imagePathStego) as imS:
-        pxS = imS.load()
+    with Image.open(stego_path).convert("RGB") as img_stego:
+        img_stego.load()
+        print("Image dimensions: " + str(img_stego.size[0]) + "x" + str(img_stego.size[1]))
 except:
-    print("Stego image doesn't exist.")
+    print("Unable to get image into correct format. (Only works with RGB images)")
     sys.exit()
 
-if (imO.size != imS.size):
-    print("The two provided images are not the same size.")
+# Stops program if the images aren't the same size
+if (img_original.size != img_stego.size):
+    print("The two provided images are not the same size!")
     sys.exit()
 
-mse = calcMSE(imO, imS)
-psnr = calcPSNR(mse)
-qi = calcQI(imO, imS)
+# Calculates MSE, PSNR, and QI
+mse = calc_mse(img_original, img_stego)
+psnr = calc_psnr(mse)
+qi = calc_qi(img_original, img_stego)
 
 print("\n--==DISTORTION MEASUREMENTS==--")
 print("{:<5} | {:<20} | Lower = Better".format("MSE", mse))
 print("{:<5} | {:<20} | Higher = Better".format("PSNR", psnr))
-print("{:<5} | {:<20} | Higher = Better".format("QI", qi))
+print("{:<5} | {:<20} | Higher = Better".format("QI", "INVALID (STDDEV=0)" if qi == INFINITY else qi))
 
-histInfo = showHist(imO, imS)
+# Shows histogram and gets statistics of each image
+hist_info = show_hist(img_original, img_stego)
 
 print("\n--==HISTOGRAM INFORMATION==--")
-print("{:<20} | {:<20}".format("Mean Original", histInfo[0]))
-print("{:<20} | {:<20}".format("Mean Stego", histInfo[1]))
-print("{:<20} | {:<20}".format("StdDev Original", histInfo[2]))
-print("{:<20} | {:<20}".format("StdDev Stego", histInfo[3]))
-print("{:<20} | {:<20}".format("MinMax Original", str(histInfo[4])))
-print("{:<20} | {:<20}".format("MinMax Stego", str(histInfo[5])))
+print("{:<20} | {:<20}".format("Mean Original", hist_info[0]))
+print("{:<20} | {:<20}".format("Mean Stego", hist_info[1]))
+print("{:<20} | {:<20}".format("StdDev Original", hist_info[2]))
+print("{:<20} | {:<20}".format("StdDev Stego", hist_info[3]))
+print("{:<20} | {:<20}".format("MinMax Original", str(hist_info[4])))
+print("{:<20} | {:<20}".format("MinMax Stego", str(hist_info[5])))
