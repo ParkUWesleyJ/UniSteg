@@ -17,6 +17,6 @@ StegEval: A program with several algorithms used to determine how well a message
 - Calculates Peak Signal-to-Noise Ratio (PSNR), which expresses the ratio between the maximum possible value of a signal and the power of distorting noise that affects the quality of its representation. (How much noise an image has)
 - Calculates Quality Index (QI), which simply measures stegimage quality in comparison to the original.
 - Creates a Pixel Value Histogram to give a visual representation of the distribution of pixel values. Along with this comes averages, standard deviations, minimums, and maximums of the histograms.
-*NOTE: Only supports images that can be converted into RGB mode. If you'd like to test it, see the TestImages file.*
+- *NOTE: Only supports images that can be converted into RGB mode. If you'd like to test it, see the TestImages file.*
 
 > WARNING: Both of these versions are not stable nor secure. Do not use these programs in their current state if you expect them to yield good results. They are functional but they are not secure.
