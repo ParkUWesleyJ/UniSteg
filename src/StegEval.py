@@ -1,5 +1,5 @@
 #########################################################
-# StegEval v0.6
+# StegEval.py v0.6
 # Wesley Jacobs
 #
 # A tool used to compare an original image and its
@@ -13,27 +13,51 @@ import math                       # used for log10
 
 try:
     import numpy as np                # used to calculate averages and sums of Image pixels more efficiently
-    from PIL import Image             # used for image processing
     import matplotlib.pyplot as plt   # used to visually represent histograms
 except:
     print("Missing a module. Did you run 'pip install -r modules.txt'?")
     sys.exit()
 
 class StegEval:
+    # Constructor that sets the images to evaluate
+    def __init__(self, images=[None, None]):
+        if (type(images[0]) == type(None) and type(images[1]) == type(None)):
+            self._images = images
+        else:
+            self.set_images(images)
 
-    # Constructor
-    def __init__(self):
-        self.returned = True
+    # Sets the images to use for evaluation
+    def set_images(self, images):
+        try:
+            mode1 = images[0].mode
+            mode2 = images[1].mode
+            size1 = images[0].size
+            size2 = images[1].size
+        except:
+            raise TypeError("Images must be of Image type.")
+        if (mode1 != "RGB" and mode2 != "RGB"):
+            raise TypeError("Images must be be able to be converted to RGB mode.")
+        if (size1[0] != size2[0] or size1[1] != size2[1]):
+            raise TypeError("Images must be the same size.")
+        self._images = images
 
     # Calculates Mean Square Error (MSE)
-    def calc_mse(img_original, img_stego):
+    def calc_mse(self):
+        if (type(self._images[0]) == type(None) or type(self._images[1]) == type(None)):
+            raise TypeError("One or more images is of None type.")
+
         # Get the squared difference between all pixels then get the average
-        mse = np.mean(np.square(np.subtract(img_original, img_stego, dtype=np.int32)))
+        mse = np.mean(np.square(np.subtract(self._images[0], self._images[1], dtype=np.int32)))
 
         return round(mse, 10)
 
     # Calculates Peak Signal-to-Noise Ratio (PSNR)
-    def calc_psnr(mse):
+    def calc_psnr(self):
+        if (type(self._images[0]) == type(None) or type(self._images[1]) == type(None)):
+            raise TypeError("One or more images is of None type.")
+
+        mse = self.calc_mse()
+
         if (mse == 0):
             psnr = INFINITY
         else:
@@ -42,42 +66,48 @@ class StegEval:
         return round(psnr, 10)
 
     # Calculates Quality Index (QI)
-    def calc_qi(img_original, img_stego):
+    def calc_qi(self):
+        if (type(self._images[0]) == type(None) or type(self._images[1]) == type(None)):
+            raise TypeError("One or more images is of None type.")
+
         # Average pixel values
-        avg_original = np.mean(img_original)
-        avg_stego = np.mean(img_stego)
+        avg1 = np.mean(self._images[0])
+        avg2 = np.mean(self._images[1])
 
         # Standard deviation of pixel values
-        std_original = np.sum(np.subtract(img_original, avg_original) ** 2) / (3*img_original.size[0]*img_original.size[1]-1)
-        std_stego = np.sum(np.subtract(img_stego, avg_stego) ** 2) / (3*img_stego.size[0]*img_stego.size[1]-1)
+        std1 = np.sum(np.subtract(self._images[0], avg1) ** 2) / (3*self._images[0].size[0]*self._images[0].size[1]-1)
+        std2 = np.sum(np.subtract(self._images[1], avg2) ** 2) / (3*self._images[1].size[0]*self._images[1].size[1]-1)
 
         # Covariance of both original and stego image pixel values
-        covariance = np.sum(np.subtract(img_original, avg_original) * np.subtract(img_stego, avg_stego)) / (3*img_original.size[0]*img_original.size[1]-1)
+        covariance = np.sum(np.subtract(self._images[0], avg1) * np.subtract(self._images[1], avg2)) / (3*self._images[0].size[0]*self._images[0].size[1]-1)
 
-        if (std_original == 0 and std_stego == 0):
+        if (std1 == 0 and std2 == 0):
             qi = INFINITY
         else:
-            qi = (4 * covariance * avg_original * avg_stego) / ((std_original + std_stego) * ((avg_original ** 2) + (avg_stego ** 2)))
+            qi = (4 * covariance * avg1 * avg2) / ((std1 + std2) * ((avg1 ** 2) + (avg2 ** 2)))
 
         return round(qi, 10)
 
     # Gets Pixel Value Difference Histogram
-    def show_hist(img_original, img_stego):
+    def show_hist(self):
+        if (type(self._images[0]) == type(None) or type(self._images[1]) == type(None)):
+            raise TypeError("One or more images is of None type.")
+
         # Gets an array of individual pixel average values
-        avg_pix_array_original = np.mean(np.array(img_original, dtype=np.int32).reshape(np.array(img_original).size // 3, 3), axis=1)
-        avg_pix_array_stego = np.mean(np.array(img_stego, dtype=np.int32).reshape(np.array(img_stego).size // 3, 3), axis=1)
+        avg_pix_array1 = np.mean(np.array(self._images[0], dtype=np.int32).reshape(np.array(self._images[0]).size // 3, 3), axis=1)
+        avg_pix_array2 = np.mean(np.array(self._images[1], dtype=np.int32).reshape(np.array(self._images[1]).size // 3, 3), axis=1)
 
         # Create histograms
-        y, x, _ = plt.hist(x=avg_pix_array_original, bins=range(0, 256), color="#000000", alpha=0.5, histtype="step", label="Original")
-        plt.hist(x=avg_pix_array_stego, bins=range(0, 256), color="#ff0000", alpha=0.5, histtype="step", label="Stego")
+        y, x, _ = plt.hist(x=avg_pix_array1, bins=range(0, 256), color="#000000", alpha=0.5, histtype="step", label="Original")
+        plt.hist(x=avg_pix_array2, bins=range(0, 256), color="#ff0000", alpha=0.5, histtype="step", label="Stego")
 
         # Several values that can be used to see differences between images
-        avg_original = np.mean(avg_pix_array_original)
-        avg_stego = np.mean(avg_pix_array_stego)
-        std_original = np.std(avg_pix_array_original)
-        std_stego = np.std(avg_pix_array_stego)
-        minmax_original = (np.max(avg_pix_array_original), np.min(avg_pix_array_original))
-        minmax_stego = (np.max(avg_pix_array_stego), np.min(avg_pix_array_stego))
+        avg1 = np.mean(avg_pix_array1)
+        avg2 = np.mean(avg_pix_array2)
+        std1 = np.std(avg_pix_array1)
+        std2 = np.std(avg_pix_array2)
+        minmax1 = (np.max(avg_pix_array1), np.min(avg_pix_array1))
+        minmax2 = (np.max(avg_pix_array2), np.min(avg_pix_array2))
 
         # Histogram formatting
         plt.ylim([0, y.max()+1])
@@ -89,36 +119,4 @@ class StegEval:
 
         plt.show()
 
-        return [avg_original, avg_stego, std_original, std_stego, minmax_original, minmax_stego]
-
-    # Gets input images
-    def getImages():
-        pass
-        
-
-# DRIVER CODE
-
-# def main ():
-#     # Calculates MSE, PSNR, and QI
-#     mse = calc_mse(img_original, img_stego)
-#     psnr = calc_psnr(mse)
-#     qi = calc_qi(img_original, img_stego)
-
-#     print("\n--==DISTORTION MEASUREMENTS==--")
-#     print("{:<5} | {:<20} | Lower = Better".format("MSE", mse))
-#     print("{:<5} | {:<20} | Higher = Better".format("PSNR", psnr))
-#     print("{:<5} | {:<20} | Higher = Better".format("QI", "INVALID (STDDEV=0)" if qi == INFINITY else qi))
-
-#     # Shows histogram and gets statistics of each image
-#     hist_info = show_hist(img_original, img_stego)
-
-#     print("\n--==HISTOGRAM INFORMATION==--")
-#     print("{:<20} | {:<20}".format("Mean Original", hist_info[0]))
-#     print("{:<20} | {:<20}".format("Mean Stego", hist_info[1]))
-#     print("{:<20} | {:<20}".format("StdDev Original", hist_info[2]))
-#     print("{:<20} | {:<20}".format("StdDev Stego", hist_info[3]))
-#     print("{:<20} | {:<20}".format("MinMax Original", str(hist_info[4])))
-#     print("{:<20} | {:<20}".format("MinMax Stego", str(hist_info[5])))
-
-# if __name__ == "__main__":
-#     sys.exit(main())
+        return [avg1, avg2, std1, std2, minmax1, minmax2]
