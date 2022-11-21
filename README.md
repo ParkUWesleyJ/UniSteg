@@ -4,11 +4,11 @@
 UniSteg: An program used to conceal and extract messages to and from images
 StegEval: A program with several algorithms used to determine how well a message is hidden in a stegimage
 
-## UniSteg v0.2
+## UniSteg v0.3
 **A Steganographic program that hides and extracts Unicode from images.**
 
-- Conceals ASCII messages inside images through the manipulation of LSBs in pixel color values.
-- Extracts ASCII messages from images by getting the LSB of each pixel color value.
+- Conceals UTF-8 encoded messages inside images through the manipulation of LSBs in pixel color values.
+- Extracts UTF-8 encoded messages from images by getting the LSB of each pixel color value.
 
 ## StegEval v0.6
 **A program that uses several analysis algorithms to determine how well a message is hidden inside an image. Does not yield results that show how resistant an image is to steganalysis attacks.**
