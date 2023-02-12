@@ -5,6 +5,7 @@
 # Currently an exploratory program that conceals and
 # extracts message to and from images.
 #########################################################
+import math
 
 from enums import Colors
 
@@ -22,6 +23,18 @@ try:
 except:
     print("Missing a module. Did you run 'pip install -r modules.txt'?")
     sys.exit()
+
+
+def fix_bit(to_fix, should_be):
+    if to_fix % 2 == should_be:
+        return to_fix
+
+    if to_fix - 1 > 0:
+        to_fix -= 1
+    else:
+        to_fix += 1
+
+    return to_fix
 
 
 class UniSteg:
@@ -63,44 +76,16 @@ class UniSteg:
                 public_key = serialization.load_pem_public_key(
                     key_file.read()
                 )
-            with open("encrypt_info/private.pem", "rb") as key_file:
-                private_key = serialization.load_pem_private_key(
-                    key_file.read(),
-                    password=None
-                )
         else:
             with open("encrypt_info/" + uuid_input + "/public.pem", "rb") as key_file:
                 public_key = serialization.load_pem_public_key(
                     key_file.read()
                 )
 
-        secret_message_string = input("Enter your secret message: ")
-
-        # convert string into an array of UTF-8 values
-        secret_message_byte_array = bytearray(secret_message_string, "utf-8")
-        secret_message_binary = np.array([], dtype=int)  # used to store the secret message in binary format
-
-        # loops through each ascii value
-        for byte in secret_message_byte_array:
-            # Adds leading zeros so each character is guaranteed to be 8 bits in length
-            # [2:] gets rid of the '0b' before the binary value
-            for bit in range(8-len(str(bin(byte)[2:]))):
-                secret_message_binary = np.append(secret_message_binary, 0)
-            # Adds the byte of data to the secret message binary string
-            secret_message_binary = np.concatenate((secret_message_binary, [int(ch) for ch in list(bin(byte)[2:])]))
-
-        # Add null character to signify the ending
-        secret_message_binary = np.append(secret_message_binary, [0] * 8)
-
-        # Stores the subtraction mask, which is what turns the original pixel's bits into secret message bits
-        subtract_mask = np.array(self._image).flatten()[:len(secret_message_binary)]
-
         random_seed = secrets.randbelow(10 ** 21)
         random.seed(random_seed)
 
-        print("\nSeed before encryption:", random_seed)
-
-        encrypted_seed = public_key.encrypt(
+        secret_message = public_key.encrypt(
             random_seed.to_bytes((random_seed.bit_length() + 7) // 8, "big"),
             padding.OAEP(
                 mgf=padding.MGF1(algorithm=hashes.SHA256()),
@@ -109,32 +94,50 @@ class UniSteg:
             )
         )
 
-        decrypted_seed = private_key.decrypt(
-            encrypted_seed,
-            padding.OAEP(
-                mgf=padding.MGF1(algorithm=hashes.SHA256()),
-                algorithm=hashes.SHA256(),
-                label=None
+        secret_message += bytes(input("Enter your secret message: "), "utf-8")
+
+        # stores all secret data, including message and encrypted seed
+        secret_binary = np.array([], dtype=int)
+
+        # Loops through each utf-8 byte in message
+        for byte in secret_message:
+            bits = bin(byte)[2:]
+
+            # Adds leading zeros to ensure each byte is eight bits
+            for bit in range(8-len(bits)):
+                secret_binary = np.append(secret_binary, 0)
+
+            # Adds the byte in binary form to array of bits
+            secret_binary = np.concatenate(
+                (secret_binary, [int(bit) for bit in list(bits)])
             )
-        )
 
-        print("Seed after encryption and decryption:", int.from_bytes(decrypted_seed, "big"), "\n")
+        # Add null character to signify the ending
+        secret_binary = np.append(secret_binary, [0] * 8)
 
-        # Create subtraction mask based on the secret message
-        for i in range(len(subtract_mask)):
-            if subtract_mask[i] % 2 != secret_message_binary[i]:
-                if subtract_mask[i]-1 > 0:
-                    subtract_mask[i] = 1
-                else:
-                    subtract_mask[i] = -1
+        # A flattened for of the image for secret bits to be placed
+        im_stego = np.array(self._image).flatten()
+
+        # Throws error if message cannot fit in image
+        if len(im_stego) < len(secret_binary):
+            raise ValueError("Image has too few pixels to fit message.")
+
+        used_random_indexes = []
+
+        for i in range(len(secret_binary)):
+            if i < 2048:
+                im_stego[i] = fix_bit(im_stego[i], secret_binary[i])
             else:
-                subtract_mask[i] = 0
+                random_index = math.floor(random.random() * len(im_stego))
 
-        # Create the new image from the subtraction mask
-        im_flattened = np.array(self._image).flatten()
-        im_stego = np.append(np.subtract(im_flattened[:len(secret_message_binary)], subtract_mask),
-                             im_flattened[len(secret_message_binary):]).reshape(np.array(self._image).shape)
+                while random_index < 2048 or random_index in used_random_indexes:
+                    random_index = math.floor(random.random() * len(im_stego))
 
+                im_stego[random_index] = fix_bit(im_stego[random_index], secret_binary[i])
+
+                used_random_indexes.append(random_index)
+
+        im_stego = im_stego.reshape(np.array(self._image).shape)
         Image.fromarray(im_stego).save('other/stego.png')
 
     # Extracts secret message from image and outputs it to console
