@@ -5,13 +5,13 @@
 # Currently an exploratory program that conceals and
 # extracts message to and from images.
 #########################################################
-import math
 
 from enums import Colors
 
 import random
 import secrets
-import sys                 # used to exit on error/quit
+import sys      # used to exit on error/quit
+import math
 
 try:
     from pathlib import Path
@@ -85,6 +85,8 @@ class UniSteg:
         random_seed = secrets.randbelow(10 ** 21)
         random.seed(random_seed)
 
+        print(random_seed)
+
         secret_message = public_key.encrypt(
             random_seed.to_bytes((random_seed.bit_length() + 7) // 8, "big"),
             padding.OAEP(
@@ -122,20 +124,22 @@ class UniSteg:
         if len(im_stego) < len(secret_binary):
             raise ValueError("Image has too few pixels to fit message.")
 
-        used_random_indexes = []
+        used_indexes = []
 
         for i in range(len(secret_binary)):
             if i < 2048:
-                im_stego[i] = fix_bit(im_stego[i], secret_binary[i])
+                cipher_index = round(len(im_stego) / 2048) * i
+                im_stego[cipher_index] = fix_bit(im_stego[cipher_index], secret_binary[i])
+                used_indexes.append(cipher_index)
             else:
                 random_index = math.floor(random.random() * len(im_stego))
 
-                while random_index < 2048 or random_index in used_random_indexes:
+                while random_index in used_indexes:
                     random_index = math.floor(random.random() * len(im_stego))
 
                 im_stego[random_index] = fix_bit(im_stego[random_index], secret_binary[i])
 
-                used_random_indexes.append(random_index)
+                used_indexes.append(random_index)
 
         im_stego = im_stego.reshape(np.array(self._image).shape)
         Image.fromarray(im_stego).save('other/stego.png')
@@ -145,27 +149,57 @@ class UniSteg:
         if self._image is None:
             raise TypeError("Image is of None type.")
 
+        with open("encrypt_info/private.pem", "rb") as key_file:
+            private_key = serialization.load_pem_private_key(
+                key_file.read(),
+                password=None
+            )
+
         binary_message = ""
+        binary_encrypted_seed = ""
         im_flattened = np.array(self._image).flatten()
 
         # Stores how many zeros in a row to find null character
         num_zeros = 0
 
-        # Creates a string of the least significant bits in the image that correlate to a secret message
-        for i in range(len(im_flattened)):
-            binary_message += str(im_flattened[i] % 2)
+        used_indexes = []
 
-            if im_flattened[i] % 2 == 0:
+        for i in range(2048):
+            cipher_index = round(len(im_flattened) / 2048) * i
+            binary_encrypted_seed += str(im_flattened[cipher_index] % 2)
+
+            used_indexes.append(cipher_index)
+
+        binary_encrypted_seed = int(binary_encrypted_seed, 2)
+        bytes_encrypted_seed = binary_encrypted_seed.to_bytes((binary_encrypted_seed.bit_length() + 7) // 8, "big")
+
+        random_seed_bytes = private_key.decrypt(
+            bytes_encrypted_seed,
+            padding.OAEP(
+                mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                algorithm=hashes.SHA256(),
+                label=None
+            )
+        )
+
+        random_seed = int.from_bytes(random_seed_bytes, "big")
+        random.seed(random_seed)
+
+        # Creates a string of the least significant bits in the image that correlate to a secret message
+        while num_zeros < 8 or len(binary_message) % 8 != 0:
+            random_index = math.floor(random.random() * len(im_flattened))
+
+            while random_index in used_indexes:
+                random_index = math.floor(random.random() * len(im_flattened))
+
+            binary_message += str(im_flattened[random_index] % 2)
+
+            if im_flattened[random_index] % 2 == 0:
                 num_zeros += 1
             else:
                 num_zeros = 0
 
-            # If the end of a byte and found 8 or more zeros (accounting for 0s at the end of previous byte),
-            # end the search
-            if num_zeros >= 8 and (i + 1) % 8 == 0:
-                break
-
-        # Convert to decimal ASCII values
+        # Convert to decimal UTF-8 values
         binary_message = int(binary_message[:-8], 2)
         # Converts the formatted string into readable bytes
         byte_array = binary_message.to_bytes((binary_message.bit_length() + 7) // 8, "big")

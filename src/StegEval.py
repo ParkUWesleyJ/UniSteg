@@ -50,7 +50,7 @@ class StegEval:
         # Get the squared difference between all pixels then get the average
         mse = np.mean(np.square(np.subtract(self._images[0], self._images[1], dtype=np.int32)))
 
-        return mse.round(1)
+        return mse.round(10)
 
     # Calculates Peak Signal-to-Noise Ratio (PSNR)
     def calc_psnr(self):

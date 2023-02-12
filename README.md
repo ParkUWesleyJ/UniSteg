@@ -5,15 +5,15 @@ UniSteg: An program used to securely conceal and extract messages to and from im
 
 StegEval: A program with several algorithms used to determine how well a message is hidden in a steg-image
 
-## UniSteg v0.3.2
+## UniSteg v0.4
 **A Steganography program that hides and extracts Unicode from images.**
 
 * Conceals UTF-8 encoded messages inside images through the manipulation of LSBs in pixel color values.
   * Seed for placement of LSBs is generated randomly (true random) and then encrypted using public key of receiver
   * Encrypted seed is then placed in image to be recovered during extraction
 * Extracts UTF-8 encoded messages from images by getting the LSB of pixel color values.
-  * (UPCOMING) Grabs encrypted seed from image and decrypts it using private key
-  * (UPCOMING) Finds modified LSBs according to seed to recover message
+  * Grabs encrypted seed from image and decrypts it using private key
+  * Finds modified LSBs according to seed to recover message
 
 ## StegEval v0.6
 **A program that uses several analysis algorithms to determine how well a message is hidden inside an image. Does not yield results that show how resistant an image is to steg-analysis attacks.**
