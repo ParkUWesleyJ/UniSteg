@@ -1,12 +1,10 @@
 #########################################################
-# UniSteg.py v0.3.1
+# UniSteg.py v0.4
 # Wesley Jacobs
 #
 # Currently an exploratory program that conceals and
 # extracts message to and from images.
 #########################################################
-
-from enums import Colors
 
 import random
 import secrets
@@ -16,7 +14,7 @@ import math
 try:
     from pathlib import Path
     from cryptography.hazmat.primitives import serialization
-    from cryptography.hazmat.primitives.asymmetric import padding
+    from cryptography.hazmat.primitives.asymmetric import padding, utils
     from cryptography.hazmat.primitives import hashes
     from PIL import Image  # used for image processing
     import numpy as np     # used for more optimized arrays
@@ -61,31 +59,27 @@ class UniSteg:
             raise TypeError("Image is of None type.")
 
         uuid_input = input("Enter UUID of intended receiver: ")
+        receiver_uuid = Path("encrypt_info/your_uuid")
 
-        sender_uuid = Path("encrypt_info/your_uuid")
-        receiver_uuid = Path("encrypt_info/" + uuid_input + "/")
+        # Checks if UUID exists (currently only user's UUID)
+        if receiver_uuid.open("r").read() != uuid_input:
+            raise ValueError("UUID doesn't exist")
 
-        # Checks if UUID in database or if current user's
-        if sender_uuid.open("r").read() != uuid_input and not receiver_uuid.is_file():
-            print(Colors.RED + "UUID not found!" + Colors.WHITE)
-            return -1
+        # Gets public key tied to UUID for seed encryption
+        with open("encrypt_info/public.pem", "rb") as public_key_file:
+            public_key = serialization.load_pem_public_key(
+                public_key_file.read()
+            )
 
-        # Finds public key based on UUID input
-        if sender_uuid.open("r").read() == uuid_input:
-            with open("encrypt_info/public.pem", "rb") as key_file:
-                public_key = serialization.load_pem_public_key(
-                    key_file.read()
-                )
-        else:
-            with open("encrypt_info/" + uuid_input + "/public.pem", "rb") as key_file:
-                public_key = serialization.load_pem_public_key(
-                    key_file.read()
-                )
+        # Gets private key tied to user running program for signing
+        with open("encrypt_info/private.pem", "rb") as private_key_file:
+            private_key = serialization.load_pem_private_key(
+                private_key_file.read(),
+                password=None
+            )
 
         random_seed = secrets.randbelow(10 ** 21)
         random.seed(random_seed)
-
-        print(random_seed)
 
         secret_message = public_key.encrypt(
             random_seed.to_bytes((random_seed.bit_length() + 7) // 8, "big"),
@@ -96,12 +90,13 @@ class UniSteg:
             )
         )
 
-        secret_message += bytes(input("Enter your secret message: "), "utf-8")
+        message_input = bytes(input("Enter your secret message: "), "utf-8")
+        secret_message += message_input
 
-        # stores all secret data, including message and encrypted seed
+        # Stores all secret data, including message and encrypted seed
         secret_binary = np.array([], dtype=int)
 
-        # Loops through each utf-8 byte in message
+        # Converts secret message to binary format
         for byte in secret_message:
             bits = bin(byte)[2:]
 
@@ -120,8 +115,8 @@ class UniSteg:
         # A flattened for of the image for secret bits to be placed
         im_stego = np.array(self._image).flatten()
 
-        # Throws error if message cannot fit in image
-        if len(im_stego) < len(secret_binary):
+        # Throws error if message (plus signature) cannot fit in image
+        if len(im_stego) < len(secret_binary + 2048):
             raise ValueError("Image has too few pixels to fit message.")
 
         used_indexes = []
@@ -141,6 +136,46 @@ class UniSteg:
 
                 used_indexes.append(random_index)
 
+        # Creates signature from the hash of secret message binary
+        chosen_hash = hashes.SHA256()
+        hasher = hashes.Hash(chosen_hash)
+        hasher.update(message_input)
+        digest = hasher.finalize()
+        signature = private_key.sign(
+            digest,
+            padding.PSS(
+                mgf=padding.MGF1(hashes.SHA256()),
+                salt_length=padding.PSS.MAX_LENGTH
+            ),
+            utils.Prehashed(chosen_hash)
+        )
+
+        signature_binary = np.array([], dtype=int)
+
+        # Converts signature to binary
+        for byte in signature:
+            bits = bin(byte)[2:]
+
+            # Adds leading zeros to ensure each byte is eight bits
+            for bit in range(8 - len(bits)):
+                signature_binary = np.append(signature_binary, 0)
+
+            # Adds the byte in binary form to array of bits
+            signature_binary = np.concatenate(
+                (signature_binary, [int(bit) for bit in list(bits)])
+            )
+
+        # Hides signature into image using seed
+        for i in range(len(signature_binary)):
+            random_index = math.floor(random.random() * len(im_stego))
+
+            while random_index in used_indexes:
+                random_index = math.floor(random.random() * len(im_stego))
+
+            im_stego[random_index] = fix_bit(im_stego[random_index], signature_binary[i])
+
+            used_indexes.append(random_index)
+
         im_stego = im_stego.reshape(np.array(self._image).shape)
         Image.fromarray(im_stego).save('other/stego.png')
 
@@ -149,6 +184,20 @@ class UniSteg:
         if self._image is None:
             raise TypeError("Image is of None type.")
 
+        uuid_input = input("Enter UUID of sender: ")
+        sender_uuid = Path("encrypt_info/your_uuid")
+
+        # Checks if UUID exists (currently only user's UUID)
+        if sender_uuid.open("r").read() != uuid_input:
+            raise ValueError("UUID doesn't exist")
+
+        # Gets public key tied to UUID for verification
+        with open("encrypt_info/public.pem", "rb") as public_key_file:
+            public_key = serialization.load_pem_public_key(
+                public_key_file.read()
+            )
+
+        # Gets private key from user running program for decryption
         with open("encrypt_info/private.pem", "rb") as key_file:
             private_key = serialization.load_pem_private_key(
                 key_file.read(),
@@ -164,6 +213,7 @@ class UniSteg:
 
         used_indexes = []
 
+        # Gets encrypted seed binary
         for i in range(2048):
             cipher_index = round(len(im_flattened) / 2048) * i
             binary_encrypted_seed += str(im_flattened[cipher_index] % 2)
@@ -173,14 +223,17 @@ class UniSteg:
         binary_encrypted_seed = int(binary_encrypted_seed, 2)
         bytes_encrypted_seed = binary_encrypted_seed.to_bytes((binary_encrypted_seed.bit_length() + 7) // 8, "big")
 
-        random_seed_bytes = private_key.decrypt(
-            bytes_encrypted_seed,
-            padding.OAEP(
-                mgf=padding.MGF1(algorithm=hashes.SHA256()),
-                algorithm=hashes.SHA256(),
-                label=None
+        try:
+            random_seed_bytes = private_key.decrypt(
+                bytes_encrypted_seed,
+                padding.OAEP(
+                    mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                    algorithm=hashes.SHA256(),
+                    label=None
+                )
             )
-        )
+        except:
+            raise ValueError("Could not read information with given private key")
 
         random_seed = int.from_bytes(random_seed_bytes, "big")
         random.seed(random_seed)
@@ -202,6 +255,41 @@ class UniSteg:
         # Convert to decimal UTF-8 values
         binary_message = int(binary_message[:-8], 2)
         # Converts the formatted string into readable bytes
-        byte_array = binary_message.to_bytes((binary_message.bit_length() + 7) // 8, "big")
+        message_byte_array = binary_message.to_bytes((binary_message.bit_length() + 7) // 8, "big")
+        message_decoded = message_byte_array.decode("utf-8")
 
-        return byte_array.decode("utf-8")
+        signature_binary = ""
+
+        # Gets signature binary
+        for i in range(2048):
+            random_index = math.floor(random.random() * len(im_flattened))
+
+            while random_index in used_indexes:
+                random_index = math.floor(random.random() * len(im_flattened))
+
+            signature_binary += str(im_flattened[random_index] % 2)
+
+            used_indexes.append(random_index)
+
+        signature_binary = int(signature_binary, 2)
+        signature_byte_array = signature_binary.to_bytes((signature_binary.bit_length() + 7) // 8, "big")
+
+        chosen_hash = hashes.SHA256()
+        hasher = hashes.Hash(chosen_hash)
+        hasher.update(message_byte_array)
+        digest = hasher.finalize()
+
+        try:
+            public_key.verify(
+                signature_byte_array,
+                digest,
+                padding.PSS(
+                    mgf=padding.MGF1(hashes.SHA256()),
+                    salt_length=padding.PSS.MAX_LENGTH
+                ),
+                utils.Prehashed(chosen_hash)
+            )
+        except:
+            raise ValueError(f"The message \"${message_decoded}\" was not sent from the intended sender")
+
+        return message_decoded
