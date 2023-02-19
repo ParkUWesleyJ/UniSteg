@@ -32,7 +32,7 @@ class UniSteg:
         Initializes the algorithm. Takes in an image to process if provided
 
         :param image: Original Image object
-        :type image: :class:`PIL.Image`
+        :type image: :class:`PIL.Image.Image`
         """
         if image is None:
             self._image = image
@@ -44,7 +44,7 @@ class UniSteg:
         Takes in an image to process. Verifies if it works with the algorithm
 
         :param image: Original Image object
-        :type image: :class:`PIL.Image`
+        :type image: :class:`PIL.Image.Image`
         :raises TypeError: When the image is not an image
         """
         try:

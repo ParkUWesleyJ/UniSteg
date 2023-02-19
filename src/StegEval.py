@@ -28,9 +28,9 @@ class StegEval:
         Initializes the algorithm. Takes in images to evaluate if provided
 
         :param image1: Original Image object
-        :type image1: :class:`PIL.Image`
+        :type image1: :class:`PIL.Image.Image`
         :param image2: Stego Image object
-        :type image2: :class:`PIL.Image`
+        :type image2: :class:`PIL.Image.Image`
         """
         if image1 is None:
             self._image1 = None
@@ -46,9 +46,9 @@ class StegEval:
         Takes in images to evaluate. Verifies if they work with the algorithm
 
         :param image1: Original Image object
-        :type image1: :class:`PIL.Image`
+        :type image1: :class:`PIL.Image.Image`
         :param image2: Stego Image object
-        :type image2: :class:`PIL.Image`
+        :type image2: :class:`PIL.Image.Image`
         :raises TypeError: When one or more images are not images
         :raises ValueError: When the two images aren't the same size
         """

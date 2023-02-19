@@ -89,7 +89,7 @@ class Driver:
         Handles the process of setting up and running the StegEval algorithm
 
         :param algorithm: StegEval algorithm instance
-        :type algorithm: :class:`UniSteg`
+        :type algorithm: :class:`StegEval`
         """
         original_image, steg_image = Driver.verify_image_sizes()
         algorithm.set_images(original_image, steg_image)
@@ -135,7 +135,7 @@ class Driver:
         :param image_context: The context of the image that should be grabbed
         :type image_context: str
         :return: An Image object
-        :rtype: :class:`PIL.Image`
+        :rtype: :class:`PIL.Image.Image`
         """
         image_path = Driver.get_image_path(image_context)
 
@@ -219,7 +219,7 @@ class Driver:
         Takes in two images from input and verifies that they are the same size
 
         :return: A list of the two verified images
-        :rtype: list[:class:`PIL.Image`]
+        :rtype: list[:class:`PIL.Image.Image`]
         """
         while True:
             original_image = Driver.get_image('as the original image')
