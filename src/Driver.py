@@ -58,7 +58,9 @@ class Driver:
     def handle_unisteg_algorithm(algorithm):
         """
         Handles the process of setting up and running the UniSteg algorithm
+
         :param algorithm: UniSteg algorithm instance
+        :type algorithm: :class:`UniSteg`
         """
         image = Driver.get_image('for concealing/extracting')
         algorithm.set_image(image)
@@ -85,7 +87,9 @@ class Driver:
     def handle_stegeval_algorithm(algorithm):
         """
         Handles the process of setting up and running the StegEval algorithm
+
         :param algorithm: StegEval algorithm instance
+        :type algorithm: :class:`UniSteg`
         """
         original_image, steg_image = Driver.verify_image_sizes()
         algorithm.set_images(original_image, steg_image)
@@ -127,9 +131,11 @@ class Driver:
     def get_image(image_context):
         """
         Gets and loads an image from an input path
+
         :param image_context: The context of the image that should be grabbed
         :type image_context: str
         :return: An Image object
+        :rtype: :class:`PIL.Image`
         """
         image_path = Driver.get_image_path(image_context)
 
@@ -160,7 +166,9 @@ class Driver:
     def get_algorithm_type():
         """
         Gets the algorithm type through user input
+
         :return: A string containing the chosen algorithm
+        :rtype: str
         """
         while True:
             algorithm_type = input(
@@ -182,7 +190,9 @@ class Driver:
     def get_processing_type():
         """
         Gets the processing type for UniSteg through user input
+
         :return: A string containing the chosen processing
+        :rtype: str
         """
         while True:
             processing_type = input(
@@ -207,7 +217,9 @@ class Driver:
     def verify_image_sizes():
         """
         Takes in two images from input and verifies that they are the same size
+
         :return: A list of the two verified images
+        :rtype: list[:class:`PIL.Image`]
         """
         while True:
             original_image = Driver.get_image('as the original image')
@@ -224,7 +236,9 @@ class Driver:
     def get_eval_type():
         """
         Gets the evaluation type through user input
+
         :return: A string containing the chosen evaluation method
+        :rtype: str
         """
         while True:
             eval_type = input(
@@ -250,7 +264,11 @@ class Driver:
     def get_image_path(image_context):
         """
         Gets the image path through user input
+
+        :param image_context: The context of the image that should be found
+        :type image_context: str
         :return: A string containing the path of the image
+        :rtype: str
         """
         while True:
             image_path = input(

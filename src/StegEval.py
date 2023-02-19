@@ -20,8 +20,18 @@ except:
 
 
 class StegEval:
-    # Constructor that sets the images to evaluate
+    """
+    Evaluates images using common image comparison techniques
+    """
     def __init__(self, image1=None, image2=None):
+        """
+        Initializes the algorithm. Takes in images to evaluate if provided
+
+        :param image1: Original Image object
+        :type image1: :class:`PIL.Image`
+        :param image2: Stego Image object
+        :type image2: :class:`PIL.Image`
+        """
         if image1 is None:
             self._image1 = None
         if image2 is None:
@@ -29,8 +39,19 @@ class StegEval:
         if image1 is not None and image2 is not None:
             self.set_images(image1, image2)
 
-    # Sets the images to use for evaluation
+    ########################################################################
+
     def set_images(self, image1, image2):
+        """
+        Takes in images to evaluate. Verifies if they work with the algorithm
+
+        :param image1: Original Image object
+        :type image1: :class:`PIL.Image`
+        :param image2: Stego Image object
+        :type image2: :class:`PIL.Image`
+        :raises TypeError: When one or more images are not images
+        :raises ValueError: When the two images aren't the same size
+        """
         try:
             image1.convert('RGB')
             image2.convert('RGB')
@@ -39,12 +60,20 @@ class StegEval:
         except:
             raise TypeError("Images must be of Image type. It must also be able to be converted to RGB mode.")
         if size1 != size2:
-            raise TypeError("Images must be the same size.")
+            raise ValueError("Images must be the same size.")
         self._image1 = image1
         self._image2 = image2
 
-    # Calculates Mean Square Error (MSE)
+    ########################################################################
+
     def calc_mse(self):
+        """
+        Calculates the mean square error
+
+        :return: The mean square error to 10 decimal places
+        :rtype: float
+        :raises TypeError: When there are no images to evaluate
+        """
         if self._image1 is None or self._image2 is None:
             raise TypeError("One or more images is of None type.")
 
@@ -53,8 +82,16 @@ class StegEval:
 
         return mse.round(10)
 
-    # Calculates Peak Signal-to-Noise Ratio (PSNR)
+    ########################################################################
+
     def calc_psnr(self):
+        """
+        Calculates the peak signal-to-noise ratio
+
+        :return: The peak signal-to-noise ratio to 10 decimal places
+        :rtype: float
+        :raises TypeError: When there are no images to evaluate
+        """
         if self._image1 is None or self._image2 is None:
             raise TypeError("One or more images is of None type.")
 
@@ -67,8 +104,16 @@ class StegEval:
 
         return round(psnr, 10)
 
-    # Calculates Quality Index (QI)
+    ########################################################################
+
     def calc_qi(self):
+        """
+        Calculates the quality index (will yield INFINITY if provided images are fully one color)
+
+        :return: The quality index to 10 decimal places
+        :rtype: float
+        :raises TypeError: When there are no images to evaluate
+        """
         if self._image1 is None or self._image2 is None:
             raise TypeError("One or more images is of None type.")
 
@@ -93,8 +138,17 @@ class StegEval:
 
         return round(qi, 10)
 
+    ########################################################################
+
     # Gets Pixel Value Difference Histogram
     def show_hist(self):
+        """
+        Creates a histogram and returns several basic stats
+
+        :return: Index 0-1: averages, Index 2-3: standard deviations, Index 4-5: tuples of min and max
+        :rtype: list[float, tuple]
+        :raises TypeError: When there are no images to evaluate
+        """
         if self._image1 is None or self._image2 is None:
             raise TypeError("One or more images is of None type.")
 

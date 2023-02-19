@@ -23,36 +23,44 @@ except:
     sys.exit()
 
 
-def fix_bit(to_fix, should_be):
-    if to_fix % 2 == should_be:
-        return to_fix
-
-    if to_fix - 1 > 0:
-        to_fix -= 1
-    else:
-        to_fix += 1
-
-    return to_fix
-
-
 class UniSteg:
-    # Constructor that sets the image to conceal/extract if provided
+    """
+    Processes images by hiding or extracting messages from them
+    """
     def __init__(self, image=None):
+        """
+        Initializes the algorithm. Takes in an image to process if provided
+
+        :param image: Original Image object
+        :type image: :class:`PIL.Image`
+        """
         if image is None:
             self._image = image
         else:
             self.set_image(image)
 
-    # Sets the image to use for concealing/extracting if not set with constructor
     def set_image(self, image):
+        """
+        Takes in an image to process. Verifies if it works with the algorithm
+
+        :param image: Original Image object
+        :type image: :class:`PIL.Image`
+        :raises TypeError: When the image is not an image
+        """
         try:
             image.convert('RGB')
         except:
             raise TypeError("Image must be of Image type. It must also be able to be converted to RGB mode.")
         self._image = image
 
-    # Conceals a secret message into an image and saves it in current directory
     def conceal(self):
+        """
+        Conceals a secret message into an image using the receiver's public key for encryption and the sender's
+        private key for signing
+
+        :return: An image placed in project root directory
+        :raises TypeError: When there is no image to conceal into
+        """
         if self._image is None:
             raise TypeError("Image is of None type.")
 
@@ -122,7 +130,7 @@ class UniSteg:
         for i in range(len(secret_binary)):
             if i < 2048:
                 cipher_index = round(len(im_stego) / 2048) * i
-                im_stego[cipher_index] = fix_bit(im_stego[cipher_index], secret_binary[i])
+                im_stego[cipher_index] = UniSteg.fix_bit(im_stego[cipher_index], secret_binary[i])
                 used_indexes.append(cipher_index)
             else:
                 random_index = math.floor(random.random() * len(im_stego))
@@ -130,7 +138,7 @@ class UniSteg:
                 while random_index in used_indexes:
                     random_index = math.floor(random.random() * len(im_stego))
 
-                im_stego[random_index] = fix_bit(im_stego[random_index], secret_binary[i])
+                im_stego[random_index] = UniSteg.fix_bit(im_stego[random_index], secret_binary[i])
 
                 used_indexes.append(random_index)
 
@@ -170,15 +178,22 @@ class UniSteg:
             while random_index in used_indexes:
                 random_index = math.floor(random.random() * len(im_stego))
 
-            im_stego[random_index] = fix_bit(im_stego[random_index], signature_binary[i])
+            im_stego[random_index] = UniSteg.fix_bit(im_stego[random_index], signature_binary[i])
 
             used_indexes.append(random_index)
 
         im_stego = im_stego.reshape(np.array(self._image).shape)
         Image.fromarray(im_stego).save('other/stego.png')
 
-    # Extracts secret message from image and outputs it to console
     def extract(self):
+        """
+        Extracts a secret message from an image using the receiver's private key for decrypting and
+        the sender's public key for verification
+
+        :return: The string message hidden in the image
+        :rtype: str
+        :raises TypeError: When there is no image to extract from
+        """
         if self._image is None:
             raise TypeError("Image is of None type.")
 
@@ -291,3 +306,25 @@ class UniSteg:
             raise ValueError(f"The message \"${message_decoded}\" was not sent from the intended sender")
 
         return message_decoded
+
+    @staticmethod
+    def fix_bit(to_fix, should_be):
+        """
+        Changes a byte's last bit to the bit it should be
+
+        :param to_fix: The byte to fix
+        :type to_fix: int
+        :param should_be: The value the last bit should be
+        :type should_be: int
+        :return: The fixed version of the byte
+        :rtype: int
+        """
+        if to_fix % 2 == should_be:
+            return to_fix
+
+        if to_fix - 1 > 0:
+            to_fix -= 1
+        else:
+            to_fix += 1
+
+        return to_fix
