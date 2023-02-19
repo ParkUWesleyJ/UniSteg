@@ -65,14 +65,17 @@ class Driver:
 
         processing_type = Driver.get_processing_type()
 
+        # Processing handling
         if processing_type.startswith('c'):
             algorithm.conceal()
             print("Steg-image created.")
-        elif processing_type.startswith('e'):
+        if processing_type.startswith('e'):
             print("Extracted message:", algorithm.extract())
-        elif processing_type.startswith('h'):
+
+        # Navigation handling
+        if processing_type.startswith('h'):
             print("Returning to home.")
-        else:
+        if processing_type.startswith('q'):
             print("Quitting...")
             sys.exit(0)
 
@@ -89,46 +92,31 @@ class Driver:
 
         eval_type = Driver.get_eval_type()
 
-        if eval_type.startswith('m'):
+        # Evaluation handling
+        if eval_type.startswith('m') or eval_type.startswith('a'):
             print("{:<5} | {:<20} | Lower = Better".format("MSE", algorithm.calc_mse()))
-        elif eval_type.startswith('p'):
+        if eval_type.startswith('p') or eval_type.startswith('a'):
             print("{:<5} | {:<20} | Higher = Better".format("PSNR", algorithm.calc_psnr()))
-        elif eval_type.startswith('qi'):
+        if eval_type.startswith('qi') or eval_type.startswith('a'):
             qi = algorithm.calc_qi()
             print("{:<5} | {:<20} | Higher = Better".format(
                 "QI", "INVALID (Avg/Stddev=0)" if qi == INFINITY else qi
             ))
-        elif eval_type.startswith('hi'):
+        if eval_type.startswith('hi') or eval_type.startswith('a'):
             hist_info = algorithm.show_hist()
-            print(("{:<20} | {:<20}" * 6).format(
+            print(("\n{:<20} | {:<20}" * 6).format(
                 "Mean Original", hist_info[0],
                 "Mean Stego", hist_info[1],
                 "StdDev Original", hist_info[2],
                 "StdDev Stego", hist_info[3],
                 "MinMax Original", str(hist_info[4]),
                 "MinMax Stego", str(hist_info[5])
-            ))
-        elif eval_type.startswith('a'):
-            qi = algorithm.calc_qi()
-            print("\n--==DISTORTION MEASUREMENTS==--")
-            print("{:<5} | {:<20} | Lower = Better".format("MSE", algorithm.calc_mse()))
-            print("{:<5} | {:<20} | Higher = Better".format("PSNR", algorithm.calc_psnr()))
-            print("{:<5} | {:<20} | Higher = Better".format(
-                "QI", "INVALID (Avg/Stddev=0)" if qi == INFINITY else qi
             ))
 
-            hist_info = algorithm.show_hist()
-            print("\n--==HISTOGRAM INFORMATION==--" + ("\n{:<20} | {:<20}" * 6).format(
-                "Mean Original", hist_info[0],
-                "Mean Stego", hist_info[1],
-                "StdDev Original", hist_info[2],
-                "StdDev Stego", hist_info[3],
-                "MinMax Original", str(hist_info[4]),
-                "MinMax Stego", str(hist_info[5])
-            ))
-        elif eval_type.startswith('h'):
+        # Navigation handling
+        if eval_type.startswith('h') and not eval_type.startswith('ho'):
             print("Returning to home.")
-        else:
+        if eval_type.startswith('q') and not eval_type.startswith('qi'):
             print("Quitting...")
             sys.exit(0)
 
@@ -145,10 +133,11 @@ class Driver:
         """
         image_path = Driver.get_image_path(image_context)
 
+        # Navigation handling
         if image_path.lower().startswith('q'):
             print("Quitting...")
             sys.exit(0)
-        elif image_path.lower().startswith('h'):
+        if image_path.lower().startswith('h'):
             print("Returning to home.")
             Driver.main()
 
