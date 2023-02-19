@@ -1,10 +1,9 @@
 #########################################################
-# Driver.py v0.1
+# Driver.py
 # Wesley Jacobs
 #
 # Drives the UniSteg and StegEval algorithms to provide
-# a pleasant user experience. Can be altered as the
-# UniSteg and StegEval classes validate image inputs.
+# a pleasant user experience.
 #########################################################
 
 from UniSteg import UniSteg
@@ -20,222 +19,267 @@ try:
     from PIL import Image  # used for image processing
 except ModuleNotFoundError:
     print("Missing a module. Did you run 'pip install -r modules.txt'?")
-    sys.exit()
+    sys.exit(1)
 
 
-# The main code to drive the two algorithms
-def main():
-    set_private_key()
+class Driver:
+    """
+    Drives the two algorithms that come with this module
+    """
+    @staticmethod
+    def main():
+        """
+        The main function for guiding a user through using UniSteg and StegEval
+        """
+        set_private_key()
 
-    # Gets the algorithm type user wants to use
-    algorithm_type = input(
-        "\n---------------------------------------\n" +
-        "Enter one of the following commands:\n" +
-        " /evaluate\n /conceal_extract\n /quit\n" +
-        "---------------------------------------\n\n" +
-        "> "
-    ).lower()
+        algorithm_type = Driver.get_algorithm_type()
 
-    # Input validation for algorithm type
-    while algorithm_type != "/evaluate" and algorithm_type != "/conceal_extract" and algorithm_type != "/quit":
-        algorithm_type = input(
-            Colors.RED + "Invalid command.\n" + Colors.WHITE +
-            "\n---------------------------------------\n" +
-            "Enter one of the following commands:\n" +
-            " /evaluate\n /conceal_extract\n /quit\n" +
-            "---------------------------------------\n\n" +
-            "> "
-        ).lower()
-
-    # Handling and setting algorithm type
-    if algorithm_type == "/conceal_extract":
-        algorithm = UniSteg()
-    elif algorithm_type == "/evaluate":
-        algorithm = StegEval()
-    else:
-        print("Quitting...")
-        return
-
-    # Handles when user wants to conceal/decode
-    if isinstance(algorithm, UniSteg):
-        # Gets one image from user input
-        image = input_image(1, [])
-
-        # Handles when user quits
-        if image is None:
-            return
-
-        # Sets the image for the UniSteg object
-        algorithm.set_image(image[0])
-
-        # Gets the type of processing to conduct on the image
-        processing_type = input(
-            "\n--------------------------------------\n" +
-            "Enter one of the following commands:\n" +
-            " /conceal\n /extract\n /home\n /quit\n" +
-            "---------------------------------------\n\n" +
-            "> "
-        ).lower()
-
-        # Input validation for processing method
-        while processing_type != "/conceal" and processing_type != "/extract" \
-                and processing_type != "/home" and processing_type != "/quit":
-            processing_type = input(
-                Colors.RED + "Invalid command.\n" + Colors.WHITE +
-                "\n---------------------------------------\n" +
-                "Enter one of the following commands:\n" +
-                " /conceal\n /extract\n /home\n /quit\n" +
-                "---------------------------------------\n\n" +
-                "> "
-            ).lower()
-
-        # Handles processing type, quitting, and going back to home
-        if processing_type == "/conceal":
-            if algorithm.conceal() == -1:
-                main()
-            print("Steg-image created.")
-        elif processing_type == "/extract":
-            print("Extracted message:", algorithm.extract())
-        elif processing_type == "/home":
-            print("Returning to home.\n")
-            main()
-        elif processing_type == "/quit":
+        # Sets algorithm to proceed with (or quits)
+        if algorithm_type.startswith('c'):
+            algorithm = UniSteg()
+        elif algorithm_type.startswith('e'):
+            algorithm = StegEval()
+        else:
             print("Quitting...")
-            return
-    # Handles when user wants to evaluate
-    elif isinstance(algorithm, StegEval):
-        # Gets two images from user input
-        images = input_image(2, [])
+            sys.exit(0)
 
-        # Handles when user quits
-        if images is None or images[0] is None or images[1] is None:
-            return
+        if isinstance(algorithm, UniSteg):
+            Driver.handle_unisteg_algorithm(algorithm)
 
-        # Sets the images for the StegEval object
-        algorithm.set_images(images)
+        if isinstance(algorithm, StegEval):
+            Driver.handle_stegeval_algorithm(algorithm)
 
-        # Gets the method of evaluation to run on the images
-        eval_type = input(
-            "\n--------------------------------------\n" +
-            "Enter one of the following commands:\n" +
-            " /mse\n /psnr\n /qi\n /hist\n /all_evals\n /home\n /quit\n" +
-            "---------------------------------------\n\n" +
-            "> "
-        ).lower()
+        Driver.main()
 
-        # Input validation for method of evaluation
-        while eval_type != "/mse" and eval_type != "/psnr" and eval_type != "/qi" \
-                and eval_type != "/hist" and eval_type != "/all_evals" and eval_type != "/home" \
-                and eval_type != "/quit":
-            eval_type = input(
-                Colors.RED + "Invalid input.\n" + Colors.WHITE +
-                "\n--------------------------------------\n" +
-                "Enter one of the following commands:\n" +
-                " /mse\n /psnr\n /qi\n /hist\n /all_evals\n /quit\n" +
-                "---------------------------------------\n\n" +
-                "> "
-            ).lower()
+    ########################################################################
 
-        # Handles method of evaluation, quitting, and going back to home
-        if eval_type == "/mse":
+    @staticmethod
+    def handle_unisteg_algorithm(algorithm):
+        """
+        Handles the process of setting up and running the UniSteg algorithm
+        :param algorithm: UniSteg algorithm instance
+        """
+        image = Driver.get_image('for concealing/extracting')
+        algorithm.set_image(image)
+
+        processing_type = Driver.get_processing_type()
+
+        if processing_type.startswith('c'):
+            algorithm.conceal()
+            print("Steg-image created.")
+        elif processing_type.startswith('e'):
+            print("Extracted message:", algorithm.extract())
+        elif processing_type.startswith('h'):
+            print("Returning to home.")
+        else:
+            print("Quitting...")
+            sys.exit(0)
+
+    ########################################################################
+
+    @staticmethod
+    def handle_stegeval_algorithm(algorithm):
+        """
+        Handles the process of setting up and running the StegEval algorithm
+        :param algorithm: StegEval algorithm instance
+        """
+        original_image, steg_image = Driver.verify_image_sizes()
+        algorithm.set_images(original_image, steg_image)
+
+        eval_type = Driver.get_eval_type()
+
+        if eval_type.startswith('m'):
             print("{:<5} | {:<20} | Lower = Better".format("MSE", algorithm.calc_mse()))
-        elif eval_type == "/psnr":
+        elif eval_type.startswith('p'):
             print("{:<5} | {:<20} | Higher = Better".format("PSNR", algorithm.calc_psnr()))
-        elif eval_type == "/qi":
+        elif eval_type.startswith('qi'):
             qi = algorithm.calc_qi()
-            print("{:<5} | {:<20} | Higher = Better".format("QI", "INVALID (STDDEV=0)" if qi == INFINITY else qi))
-        elif eval_type == "/hist":
+            print("{:<5} | {:<20} | Higher = Better".format(
+                "QI", "INVALID (Avg/Stddev=0)" if qi == INFINITY else qi
+            ))
+        elif eval_type.startswith('hi'):
             hist_info = algorithm.show_hist()
-            print("{:<20} | {:<20}".format("Mean Original", hist_info[0]))
-            print("{:<20} | {:<20}".format("Mean Stego", hist_info[1]))
-            print("{:<20} | {:<20}".format("StdDev Original", hist_info[2]))
-            print("{:<20} | {:<20}".format("StdDev Stego", hist_info[3]))
-            print("{:<20} | {:<20}".format("MinMax Original", str(hist_info[4])))
-            print("{:<20} | {:<20}".format("MinMax Stego", str(hist_info[5])))
-        elif eval_type == "/all_evals":
+            print(("{:<20} | {:<20}" * 6).format(
+                "Mean Original", hist_info[0],
+                "Mean Stego", hist_info[1],
+                "StdDev Original", hist_info[2],
+                "StdDev Stego", hist_info[3],
+                "MinMax Original", str(hist_info[4]),
+                "MinMax Stego", str(hist_info[5])
+            ))
+        elif eval_type.startswith('a'):
+            qi = algorithm.calc_qi()
             print("\n--==DISTORTION MEASUREMENTS==--")
             print("{:<5} | {:<20} | Lower = Better".format("MSE", algorithm.calc_mse()))
             print("{:<5} | {:<20} | Higher = Better".format("PSNR", algorithm.calc_psnr()))
-            qi = algorithm.calc_qi()
-            print("{:<5} | {:<20} | Higher = Better".format("QI", "INVALID (STDDEV=0)" if qi == INFINITY else qi))
+            print("{:<5} | {:<20} | Higher = Better".format(
+                "QI", "INVALID (Avg/Stddev=0)" if qi == INFINITY else qi
+            ))
 
-            print("\n--==HISTOGRAM INFORMATION==--")
             hist_info = algorithm.show_hist()
-            print("{:<20} | {:<20}".format("Mean Original", hist_info[0]))
-            print("{:<20} | {:<20}".format("Mean Stego", hist_info[1]))
-            print("{:<20} | {:<20}".format("StdDev Original", hist_info[2]))
-            print("{:<20} | {:<20}".format("StdDev Stego", hist_info[3]))
-            print("{:<20} | {:<20}".format("MinMax Original", str(hist_info[4])))
-            print("{:<20} | {:<20}".format("MinMax Stego", str(hist_info[5])))
-        elif eval_type == "/home":
-            print("Returning to home.\n")
-            main()
-        elif eval_type == "/quit":
+            print("\n--==HISTOGRAM INFORMATION==--" + ("\n{:<20} | {:<20}" * 6).format(
+                "Mean Original", hist_info[0],
+                "Mean Stego", hist_info[1],
+                "StdDev Original", hist_info[2],
+                "StdDev Stego", hist_info[3],
+                "MinMax Original", str(hist_info[4]),
+                "MinMax Stego", str(hist_info[5])
+            ))
+        elif eval_type.startswith('h'):
+            print("Returning to home.")
+        else:
             print("Quitting...")
-            return
+            sys.exit(0)
 
-    main()  # Brings user back to the beginning to do it again
+    ########################################################################
 
+    @staticmethod
+    # Gets user input of images. Number of images depends on algorithm being used
+    def get_image(image_context):
+        """
+        Gets and loads an image from an input path
+        :param image_context: The context of the image that should be grabbed
+        :type image_context: str
+        :return: An Image object
+        """
+        image_path = Driver.get_image_path(image_context)
 
-# Gets user input of images. Number of images depends on algorithm being used
-def input_image(num_images, image_array):
-    # Since only two images can be used at max, throw an error if it tries to use more
-    if num_images > 2:
-        raise ValueError("Number of images cannot exceed two.")
-
-    # Loops through each image that needs to be added
-    for i in range(0, num_images):
-        # Gets the path of the image to process
-        image_path = input(
-            "\n---------------------------------------------------------\n" +
-            "Enter path of image or enter one of the following commands " +
-            "(Image " + str(len(image_array) + 1) + "):\n" +
-            " /home\n /quit\n" +
-            "---------------------------------------------------------\n\n" +
-            "> "
-        )
-
-        # Input validation for image path
-        while not os.path.isfile(image_path) and image_path.lower() != "/quit" and image_path.lower() != "/home":
-            image_path = input(
-                Colors.RED + "Invalid command/path.\n" + Colors.WHITE +
-                "\n---------------------------------------------------------\n" +
-                "Enter path of image or enter one of the following commands " +
-                "(Image " + str(len(image_array) + 1) + "):\n" +
-                " /home\n /quit\n" +
-                "---------------------------------------------------------\n\n" +
-                "> "
-            )
-
-        # Handles quitting and going back to home
-        if image_path.lower() == "/quit":
+        if image_path.lower().startswith('q'):
             print("Quitting...")
-            return
-        elif image_path.lower() == "/home":
-            main()
+            sys.exit(0)
+        elif image_path.lower().startswith('h'):
+            print("Returning to home.")
+            Driver.main()
 
         # Attempts to open the image from the given path
         # Retries image path input on exception
         try:
-            if num_images > 1 or len(image_array) > 0:
-                with Image.open(image_path).convert("RGB") as im:
-                    im.load()
-            else:
-                with Image.open(image_path) as im:
-                    im.load()
-
-            if len(image_array) > 0 and (im.size[0] != image_array[0].size[0] or im.size[1] != image_array[0].size[1]):
-                raise ValueError
-
-            image_array.append(im)
-            num_images -= 1
+            with Image.open(image_path).convert("RGB") as im:
+                im.load()
+                return im
         except:
-            print(Colors.RED + "An error occurred. Was the file a PNG/JPEG image?" +
-                  "If inputting more than one image, were they the same size?" + Colors.WHITE)
-            input_image(num_images, image_array)
+            print(
+                Colors.RED + "Invalid file! Ensure the file is an image and can be converted into RGB mode." +
+                Colors.WHITE
+            )
+            return Driver.get_image(image_context)
 
-    return image_array
+    ########################################################################
+
+    @staticmethod
+    def get_algorithm_type():
+        """
+        Gets the algorithm type through user input
+        :return: A string containing the chosen algorithm
+        """
+        while True:
+            algorithm_type = input(
+                "\n---------------------------------------\n" +
+                " What would you like to do?\n" +
+                " [E]VALUATE\n [C]ONCEAL/EXTRACT\n [Q]UIT\n" +
+                "---------------------------------------\n\n" +
+                "> "
+            ).lower()
+
+            if algorithm_type.startswith('e') or algorithm_type.startswith('c') or algorithm_type.startswith('q'):
+                return algorithm_type
+
+            print(Colors.RED + "Invalid input.\n" + Colors.WHITE)
+
+    ########################################################################
+
+    @staticmethod
+    def get_processing_type():
+        """
+        Gets the processing type for UniSteg through user input
+        :return: A string containing the chosen processing
+        """
+        while True:
+            processing_type = input(
+                "\n--------------------------------------\n" +
+                " What would you like to do?\n" +
+                " [C]ONCEAL\n [E]XTRACT\n [H]OME\n [Q]UIT\n" +
+                "---------------------------------------\n\n" +
+                "> "
+            ).lower()
+
+            if (
+                processing_type.startswith('c') or processing_type.startswith('e') or
+                processing_type.startswith('h') or processing_type.startswith('q')
+            ):
+                return processing_type
+
+            print(Colors.RED + "Invalid input.\n" + Colors.WHITE)
+
+    ########################################################################
+
+    @staticmethod
+    def verify_image_sizes():
+        """
+        Takes in two images from input and verifies that they are the same size
+        :return: A list of the two verified images
+        """
+        while True:
+            original_image = Driver.get_image('as the original image')
+            steg_image = Driver.get_image('as the steg-image')
+
+            if original_image.size == steg_image.size:
+                return [original_image, steg_image]
+
+            print(Colors.RED + "Images not the same size. Please re-input the paths." + Colors.WHITE)
+
+    ########################################################################
+
+    @staticmethod
+    def get_eval_type():
+        """
+        Gets the evaluation type through user input
+        :return: A string containing the chosen evaluation method
+        """
+        while True:
+            eval_type = input(
+                "\n--------------------------------------\n" +
+                " What would you like to evaluate?\n" +
+                " [M]SE\n [P]SNR\n [QI]\n [HI]STOGRAM\n [A]LL\n [H]OME\n [Q]UIT\n" +
+                "---------------------------------------\n\n" +
+                "> "
+            ).lower()
+
+            if (
+                eval_type.startswith('m') or eval_type.startswith('p') or
+                eval_type.startswith('a') or eval_type.startswith('h') or
+                eval_type.startswith('q')
+            ):
+                return eval_type
+
+            print(Colors.RED + "Invalid input.\n" + Colors.WHITE)
+
+    ########################################################################
+
+    @staticmethod
+    def get_image_path(image_context):
+        """
+        Gets the image path through user input
+        :return: A string containing the path of the image
+        """
+        while True:
+            image_path = input(
+                "\n---------------------------------------------------------\n" +
+                " Enter path of image to use " + image_context + "\n" +
+                " [H]ome\n [Q]uit\n" +
+                "---------------------------------------------------------\n\n" +
+                "> "
+            )
+
+            if (
+                not os.path.isfile(image_path) or image_path.lower().startswith('q') or
+                image_path.lower().startswith('h')
+            ):
+                return image_path
+
+            print(Colors.RED + "Invalid path/command.\n" + Colors.WHITE)
 
 
 if __name__ == "__main__":
-    main()
+    Driver.main()

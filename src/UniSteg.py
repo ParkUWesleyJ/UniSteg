@@ -46,11 +46,9 @@ class UniSteg:
     # Sets the image to use for concealing/extracting if not set with constructor
     def set_image(self, image):
         try:
-            fmt = image.format
+            image.convert('RGB')
         except:
-            raise TypeError("Image must be of Image type.")
-        if fmt != "JPEG" and fmt != "PNG":
-            raise TypeError("Image must be a PNG or JPEG.")
+            raise TypeError("Image must be of Image type. It must also be able to be converted to RGB mode.")
         self._image = image
 
     # Conceals a secret message into an image and saves it in current directory
