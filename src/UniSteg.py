@@ -11,6 +11,8 @@ import secrets
 import sys      # used to exit on error/quit
 import math
 
+import cryptography.hazmat.primitives.asymmetric.rsa
+
 try:
     from pathlib import Path
     from cryptography.hazmat.primitives import serialization
@@ -27,17 +29,28 @@ class UniSteg:
     """
     Processes images by hiding or extracting messages from them
     """
-    def __init__(self, image=None):
+    def __init__(self, image=None, private_key=None, public_key=None):
         """
         Initializes the algorithm. Takes in an image to process if provided
 
         :param image: Original Image object
         :type image: :class:`PIL.Image.Image`
+        :param private_key: Private key
+        :type public_key: :class:`cryptography.hazmat.primitives.asymmetric.rsa.RSAPrivateKey`
+        :param public_key: Public key
+        :type public_key: :class:`cryptography.hazmat.primitives.asymmetric.rsa.RSAPublicKey`
         """
         if image is None:
-            self._image = image
+            self.__image = image
         else:
             self.set_image(image)
+
+        if private_key is None:
+            self.__private_key = private_key
+        elif public_key is None:
+            self.__public_key = public_key
+        else:
+            self.set_keys(private_key, public_key)
 
     def set_image(self, image):
         """
@@ -51,43 +64,44 @@ class UniSteg:
             image.convert('RGB')
         except:
             raise TypeError("Image must be of Image type. It must also be able to be converted to RGB mode.")
-        self._image = image
+        self.__image = image
 
-    def conceal(self):
+    def set_keys(self, private, public):
+        """
+        Takes in an image to process. Verifies if it works with the algorithm
+
+        :param private: Private key
+        :type private: :class:`cryptography.hazmat.primitives.asymmetric.rsa.RSAPrivateKey`
+        :param public: Public key
+        :type public: :class:`cryptography.hazmat.primitives.asymmetric.rsa.RSAPublicKey`
+        :raises TypeError: When a key is not an RSA Key
+        """
+        if (
+            not type(private) is not cryptography.hazmat.primitives.asymmetric.rsa.RSAPrivateKey or
+            not type(public) is not cryptography.hazmat.primitives.asymmetric.rsa.RSAPublicKey
+        ):
+            raise TypeError("Keys must RSA keys made with cryptography module")
+
+        self.__private_key = private
+        self.__public_key = public
+
+    def conceal(self, message_to_conceal):
         """
         Conceals a secret message into an image using the receiver's public key for encryption and the sender's
         private key for signing
 
         :return: An image placed in project root directory
-        :raises TypeError: When there is no image to conceal into
+        :raises TypeError: When there is no image to conceal into or public/private keys not set
         """
-        if self._image is None:
-            raise TypeError("Image is of None type.")
-
-        uuid_input = input("Enter UUID of intended receiver: ")
-        receiver_uuid = Path("encrypt_info/your_uuid")
-
-        # Checks if UUID exists (currently only user's UUID)
-        if receiver_uuid.open("r").read() != uuid_input:
-            raise ValueError("UUID doesn't exist")
-
-        # Gets public key tied to UUID for seed encryption
-        with open("encrypt_info/public.pem", "rb") as public_key_file:
-            public_key = serialization.load_pem_public_key(
-                public_key_file.read()
-            )
-
-        # Gets private key tied to user running program for signing
-        with open("encrypt_info/private.pem", "rb") as private_key_file:
-            private_key = serialization.load_pem_private_key(
-                private_key_file.read(),
-                password=None
-            )
+        if self.__image is None:
+            raise TypeError("Image not set.")
+        if self.__public_key is None or self.__private_key is None:
+            raise TypeError("One or more keys not set.")
 
         random_seed = secrets.randbelow(10 ** 21)
         random.seed(random_seed)
 
-        secret_message = public_key.encrypt(
+        secret_content = self.__public_key.encrypt(
             random_seed.to_bytes((random_seed.bit_length() + 7) // 8, "big"),
             padding.OAEP(
                 mgf=padding.MGF1(algorithm=hashes.SHA256()),
@@ -96,14 +110,13 @@ class UniSteg:
             )
         )
 
-        message_input = bytes(input("Enter your secret message: "), "utf-8")
-        secret_message += message_input
+        secret_content += message_to_conceal
 
         # Stores all secret data, including message and encrypted seed
         secret_binary = np.array([], dtype=int)
 
         # Converts secret message to binary format
-        for byte in secret_message:
+        for byte in secret_content:
             bits = bin(byte)[2:]
 
             # Adds leading zeros to ensure each byte is eight bits
@@ -119,7 +132,7 @@ class UniSteg:
         secret_binary = np.append(secret_binary, [0] * 8)
 
         # A flattened for of the image for secret bits to be placed
-        im_stego = np.array(self._image).flatten()
+        im_stego = np.array(self.__image).flatten()
 
         # Throws error if message (plus signature) cannot fit in image
         if len(im_stego) < len(secret_binary + 2048):
@@ -133,10 +146,11 @@ class UniSteg:
                 im_stego[cipher_index] = UniSteg.fix_bit(im_stego[cipher_index], secret_binary[i])
                 used_indexes.append(cipher_index)
             else:
-                random_index = math.floor(random.random() * len(im_stego))
-
-                while random_index in used_indexes:
+                while True:
                     random_index = math.floor(random.random() * len(im_stego))
+
+                    if random_index not in used_indexes:
+                        break
 
                 im_stego[random_index] = UniSteg.fix_bit(im_stego[random_index], secret_binary[i])
 
@@ -145,9 +159,10 @@ class UniSteg:
         # Creates signature from the hash of secret message binary
         chosen_hash = hashes.SHA256()
         hasher = hashes.Hash(chosen_hash)
-        hasher.update(message_input)
+        hasher.update(message_to_conceal)
         digest = hasher.finalize()
-        signature = private_key.sign(
+
+        signature = self.__private_key.sign(
             digest,
             padding.PSS(
                 mgf=padding.MGF1(hashes.SHA256()),
@@ -173,16 +188,17 @@ class UniSteg:
 
         # Hides signature into image using seed
         for i in range(len(signature_binary)):
-            random_index = math.floor(random.random() * len(im_stego))
-
-            while random_index in used_indexes:
+            while True:
                 random_index = math.floor(random.random() * len(im_stego))
+
+                if random_index not in used_indexes:
+                    break
 
             im_stego[random_index] = UniSteg.fix_bit(im_stego[random_index], signature_binary[i])
 
             used_indexes.append(random_index)
 
-        im_stego = im_stego.reshape(np.array(self._image).shape)
+        im_stego = im_stego.reshape(np.array(self.__image).shape)
         Image.fromarray(im_stego).save('other/stego.png')
 
     def extract(self):
@@ -192,34 +208,16 @@ class UniSteg:
 
         :return: The string message hidden in the image
         :rtype: str
-        :raises TypeError: When there is no image to extract from
+        :raises TypeError: When there is no image to extract from or public/private keys not set
         """
-        if self._image is None:
-            raise TypeError("Image is of None type.")
-
-        uuid_input = input("Enter UUID of sender: ")
-        sender_uuid = Path("encrypt_info/your_uuid")
-
-        # Checks if UUID exists (currently only user's UUID)
-        if sender_uuid.open("r").read() != uuid_input:
-            raise ValueError("UUID doesn't exist")
-
-        # Gets public key tied to UUID for verification
-        with open("encrypt_info/public.pem", "rb") as public_key_file:
-            public_key = serialization.load_pem_public_key(
-                public_key_file.read()
-            )
-
-        # Gets private key from user running program for decryption
-        with open("encrypt_info/private.pem", "rb") as key_file:
-            private_key = serialization.load_pem_private_key(
-                key_file.read(),
-                password=None
-            )
+        if self.__image is None:
+            raise TypeError("Image not set.")
+        if self.__public_key is None or self.__private_key is None:
+            raise TypeError("One or more keys not set.")
 
         binary_message = ""
         binary_encrypted_seed = ""
-        im_flattened = np.array(self._image).flatten()
+        im_flattened = np.array(self.__image).flatten()
 
         # Stores how many zeros in a row to find null character
         num_zeros = 0
@@ -237,7 +235,7 @@ class UniSteg:
         bytes_encrypted_seed = binary_encrypted_seed.to_bytes((binary_encrypted_seed.bit_length() + 7) // 8, "big")
 
         try:
-            random_seed_bytes = private_key.decrypt(
+            random_seed_bytes = self.__private_key.decrypt(
                 bytes_encrypted_seed,
                 padding.OAEP(
                     mgf=padding.MGF1(algorithm=hashes.SHA256()),
@@ -246,7 +244,7 @@ class UniSteg:
                 )
             )
         except:
-            raise ValueError("Could not read information with given private key")
+            raise ValueError("Private key is not compatible with this image")
 
         random_seed = int.from_bytes(random_seed_bytes, "big")
         random.seed(random_seed)
@@ -265,10 +263,13 @@ class UniSteg:
             else:
                 num_zeros = 0
 
+            used_indexes.append(random_index)
+
         # Convert to decimal UTF-8 values
         binary_message = int(binary_message[:-8], 2)
         # Converts the formatted string into readable bytes
         message_byte_array = binary_message.to_bytes((binary_message.bit_length() + 7) // 8, "big")
+
         message_decoded = message_byte_array.decode("utf-8")
 
         signature_binary = ""
@@ -293,7 +294,7 @@ class UniSteg:
         digest = hasher.finalize()
 
         try:
-            public_key.verify(
+            self.__public_key.verify(
                 signature_byte_array,
                 digest,
                 padding.PSS(
@@ -303,7 +304,7 @@ class UniSteg:
                 utils.Prehashed(chosen_hash)
             )
         except:
-            raise ValueError(f"The message \"${message_decoded}\" was not sent from the intended sender")
+            raise ValueError(f"The message \"{message_decoded}\" was not sent from the intended sender")
 
         return message_decoded
 

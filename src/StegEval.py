@@ -33,9 +33,9 @@ class StegEval:
         :type image2: :class:`PIL.Image.Image`
         """
         if image1 is None:
-            self._image1 = None
+            self.image1 = None
         if image2 is None:
-            self._image2 = None
+            self.image2 = None
         if image1 is not None and image2 is not None:
             self.set_images(image1, image2)
 
@@ -61,8 +61,8 @@ class StegEval:
             raise TypeError("Images must be of Image type. It must also be able to be converted to RGB mode.")
         if size1 != size2:
             raise ValueError("Images must be the same size.")
-        self._image1 = image1
-        self._image2 = image2
+        self.image1 = image1
+        self.image2 = image2
 
     ########################################################################
 
@@ -74,11 +74,11 @@ class StegEval:
         :rtype: float
         :raises TypeError: When there are no images to evaluate
         """
-        if self._image1 is None or self._image2 is None:
+        if self.image1 is None or self.image2 is None:
             raise TypeError("One or more images is of None type.")
 
         # Get the squared difference between all pixels then get the average
-        mse = np.mean(np.square(np.subtract(self._image1, self._image2, dtype=np.int32)))
+        mse = np.mean(np.square(np.subtract(self.image1, self.image2, dtype=np.int32)))
 
         return mse.round(10)
 
@@ -92,7 +92,7 @@ class StegEval:
         :rtype: float
         :raises TypeError: When there are no images to evaluate
         """
-        if self._image1 is None or self._image2 is None:
+        if self.image1 is None or self.image2 is None:
             raise TypeError("One or more images is of None type.")
 
         mse = self.calc_mse()
@@ -114,22 +114,22 @@ class StegEval:
         :rtype: float
         :raises TypeError: When there are no images to evaluate
         """
-        if self._image1 is None or self._image2 is None:
+        if self.image1 is None or self.image2 is None:
             raise TypeError("One or more images is of None type.")
 
         # Average pixel values
-        avg1 = np.mean(self._image1)
-        avg2 = np.mean(self._image2)
+        avg1 = np.mean(self.image1)
+        avg2 = np.mean(self.image2)
 
         # Standard deviation of pixel values
-        std1 = np.sum(np.subtract(self._image1, avg1) ** 2) / (
-                    3 * self._image1.size[0] * self._image1.size[1] - 1)
-        std2 = np.sum(np.subtract(self._image2, avg2) ** 2) / (
-                    3 * self._image2.size[0] * self._image2.size[1] - 1)
+        std1 = np.sum(np.subtract(self.image1, avg1) ** 2) / (
+                    3 * self.image1.size[0] * self.image1.size[1] - 1)
+        std2 = np.sum(np.subtract(self.image2, avg2) ** 2) / (
+                    3 * self.image2.size[0] * self.image2.size[1] - 1)
 
         # Covariance of both original and stego image pixel values
-        covariance = np.sum(np.subtract(self._image1, avg1) * np.subtract(self._image2, avg2)) / (
-                    3 * self._image1.size[0] * self._image1.size[1] - 1)
+        covariance = np.sum(np.subtract(self.image1, avg1) * np.subtract(self.image2, avg2)) / (
+                    3 * self.image1.size[0] * self.image1.size[1] - 1)
 
         if std1 == 0 and std2 == 0 or avg1 == 0 or avg2 == 0:
             qi = INFINITY
@@ -149,14 +149,14 @@ class StegEval:
         :rtype: list[float, tuple]
         :raises TypeError: When there are no images to evaluate
         """
-        if self._image1 is None or self._image2 is None:
+        if self.image1 is None or self.image2 is None:
             raise TypeError("One or more images is of None type.")
 
         # Gets an array of individual pixel average values
         avg_pix_array1 = np.mean(
-            np.array(self._image1, dtype=np.int32).reshape(np.array(self._image1).size // 3, 3), axis=1)
+            np.array(self.image1, dtype=np.int32).reshape(np.array(self.image1).size // 3, 3), axis=1)
         avg_pix_array2 = np.mean(
-            np.array(self._image2, dtype=np.int32).reshape(np.array(self._image2).size // 3, 3), axis=1)
+            np.array(self.image2, dtype=np.int32).reshape(np.array(self.image2).size // 3, 3), axis=1)
 
         # Create histograms
         y, x, _ = plt.hist(x=avg_pix_array1, bins=range(0, 256), color="#000000", alpha=0.5, histtype="step",

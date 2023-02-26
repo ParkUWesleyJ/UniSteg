@@ -8,8 +8,8 @@
 
 from UniSteg import UniSteg
 from StegEval import StegEval
-from stegencrypt import *
-from enums import Colors
+from UserKeys import *
+from enum import Enum
 
 import os.path
 from json.encoder import INFINITY  # used for case where PSNR is undefined
@@ -17,9 +17,18 @@ import sys
 
 try:
     from PIL import Image  # used for image processing
+    from cryptography.hazmat.primitives import serialization
 except ModuleNotFoundError:
     print("Missing a module. Did you run 'pip install -r modules.txt'?")
     sys.exit(1)
+
+
+class Colors(str, Enum):
+    """
+    Stores color constants
+    """
+    RED = "\033[91m",
+    WHITE = "\033[0m"
 
 
 class Driver:
@@ -31,8 +40,6 @@ class Driver:
         """
         The main function for guiding a user through using UniSteg and StegEval
         """
-        set_private_key()
-
         algorithm_type = Driver.get_algorithm_type()
 
         # Sets algorithm to proceed with (or quits)
@@ -67,19 +74,32 @@ class Driver:
 
         processing_type = Driver.get_processing_type()
 
-        # Processing handling
-        if processing_type.startswith('c'):
-            algorithm.conceal()
-            print("Steg-image created.")
-        if processing_type.startswith('e'):
-            print("Extracted message:", algorithm.extract())
-
         # Navigation handling
         if processing_type.startswith('h'):
             print("Returning to home.")
         if processing_type.startswith('q'):
             print("Quitting...")
             sys.exit(0)
+
+        private_key = Driver.get_private_key()
+        public_key = Driver.get_public_key(processing_type)
+
+        if type(public_key) is str and public_key.startswith('h'):
+            print("Returning to home.")
+            Driver.main()
+        if type(public_key) is str and public_key.startswith('q'):
+            print("Quitting...")
+            sys.exit(0)
+
+        algorithm.set_keys(private_key, public_key)
+
+        # Processing handling
+        if processing_type.startswith('c'):
+            message_to_conceal = bytes(input("Enter your secret message: "), "utf-8")
+            algorithm.conceal(message_to_conceal)
+            print("Steg-image created.")
+        if processing_type.startswith('e'):
+            print("Extracted message:", algorithm.extract())
 
     ########################################################################
 
@@ -280,12 +300,79 @@ class Driver:
             )
 
             if (
-                not os.path.isfile(image_path) or image_path.lower().startswith('q') or
+                os.path.isfile(image_path) or image_path.lower().startswith('q') or
                 image_path.lower().startswith('h')
             ):
                 return image_path
 
             print(Colors.RED + "Invalid path/command.\n" + Colors.WHITE)
+
+    @staticmethod
+    def get_private_key():
+        """
+        Gets the private key. If it, public key, or uuid not found, recreate everything
+
+        :return: RSA Private key
+        :rtype: :class:`cryptography.hazmat.primitives.asymmetric.rsa.RSAPrivateKey`
+        """
+        Path("encrypt_info/").mkdir(parents=True, exist_ok=True)
+
+        private_key_file = Path("encrypt_info/private.pem")
+        public_key_file = Path("encrypt_info/public.pem")
+        uuid_file = Path("encrypt_info/your_uuid")
+
+        if not private_key_file.is_file() or not public_key_file.is_file() or not uuid_file.is_file():
+            keys = UserKeys()
+
+            uuid_file.open("w").write(str(keys.get_uuid()))
+            private_key_file.open("w").write(keys.get_private_bytes().decode("utf-8"))
+            public_key_file.open("w").write(keys.get_public_bytes().decode("utf-8"))
+
+        # Gets private key tied to user for signing and decryption
+        with open(private_key_file, "rb") as key_file:
+            return serialization.load_pem_private_key(
+                key_file.read(),
+                password=None
+            )
+
+    @staticmethod
+    def get_public_key(processing_type):
+        """
+        Gets the public key based on UUID input
+
+        :param processing_type: How the image is going to be processed
+        :type processing_type: str
+        :return: RSA Public key
+        :rtype: :class:`cryptography.hazmat.primitives.asymmetric.rsa.RSAPublicKey` | str
+        """
+        while True:
+            public_key_context = 'receiver'
+
+            if processing_type.startswith("e"):
+                public_key_context = 'sender'
+
+            uuid_input = input(
+                f"\n---------------------------------------------------------\n" +
+                f" Enter UUID of {public_key_context}\n" +
+                " [H]ome\n [Q]uit\n" +
+                "---------------------------------------------------------\n\n" +
+                "> "
+            ).lower()
+
+            sender_uuid = Path("encrypt_info/your_uuid")
+
+            # Checks if UUID exists (currently only user's UUID)
+            if sender_uuid.open("r").read() == uuid_input:
+                # Gets public key tied to UUID for verification
+                with open("encrypt_info/public.pem", "rb") as public_key_file:
+                    return serialization.load_pem_public_key(
+                        public_key_file.read()
+                    )
+
+            if uuid_input.startswith('h') or uuid_input.startswith('q'):
+                return uuid_input
+
+            print(Colors.RED + "Invalid UUID.\n" + Colors.WHITE)
 
 
 if __name__ == "__main__":
