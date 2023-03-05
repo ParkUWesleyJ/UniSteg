@@ -1,11 +1,3 @@
-#########################################################
-# Driver.py
-# Wesley Jacobs
-#
-# Drives the UniSteg and StegEval algorithms to provide
-# a pleasant user experience.
-#########################################################
-
 from UniSteg import UniSteg
 from StegEval import StegEval
 from UserKeys import *
@@ -19,8 +11,7 @@ try:
     from PIL import Image  # used for image processing
     from cryptography.hazmat.primitives import serialization
 except ModuleNotFoundError:
-    print("Missing a module. Did you run 'pip install -r modules.txt'?")
-    sys.exit(1)
+    raise ModuleNotFoundError("Missing a module. Did you run 'pip install -r modules.txt'?")
 
 
 class Colors(str, Enum):
@@ -33,6 +24,8 @@ class Colors(str, Enum):
 
 class Driver:
     """
+    Driver.py | Wesley Jacobs
+
     Drives the two algorithms that come with this module
     """
     @staticmethod
