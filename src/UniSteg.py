@@ -2,10 +2,9 @@ import random
 import secrets
 import math
 
-import cryptography.exceptions
-
 try:
     from pathlib import Path
+    import cryptography.exceptions
     from cryptography.hazmat.primitives import serialization
     from cryptography.hazmat.primitives.asymmetric import padding, utils
     from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey, RSAPublicKey
