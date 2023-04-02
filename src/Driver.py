@@ -1,6 +1,6 @@
 from enum import Enum
 import requests
-
+import sys
 import os.path
 from json.encoder import INFINITY  # used for case where PSNR is undefined
 
