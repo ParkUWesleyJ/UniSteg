@@ -10,8 +10,8 @@ try:
     from UserKeys import *
     from PIL import Image  # used for image processing
     from cryptography.hazmat.primitives import serialization
-except ModuleNotFoundError:
-    print("Missing a module. Did you run 'pip install -r modules.txt'?")
+except ModuleNotFoundError as err:
+    print(str(err) + "\nRun 'pip install -r modules.txt' to install all needed modules")
     sys.exit(-1)
 
 
@@ -341,12 +341,12 @@ class Driver:
                 print(Colors.RED + response.json()["response"] + Colors.WHITE)
                 Driver.main()
 
-            # Gets private key tied to user for signing and decryption
-            with open(private_key_file, "rb") as key_file:
-                return serialization.load_pem_private_key(
-                    key_file.read(),
-                    password=None
-                )
+        # Gets private key tied to user for signing and decryption
+        with open(private_key_file, "rb") as key_file:
+            return serialization.load_pem_private_key(
+                key_file.read(),
+                password=None
+            )
 
     @staticmethod
     def get_public_key(processing_type):
