@@ -1,14 +1,13 @@
-from UniSteg import UniSteg
-from StegEval import StegEval
-from UserKeys import *
 from enum import Enum
 import requests
 
 import os.path
 from json.encoder import INFINITY  # used for case where PSNR is undefined
-import sys
 
 try:
+    from UniSteg import UniSteg
+    from StegEval import StegEval
+    from UserKeys import *
     from PIL import Image  # used for image processing
     from cryptography.hazmat.primitives import serialization
 except ModuleNotFoundError:
