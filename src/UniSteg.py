@@ -1,18 +1,12 @@
 import random
 import secrets
 import math
-
-try:
-    from pathlib import Path
-    import cryptography.exceptions
-    from cryptography.hazmat.primitives import serialization
-    from cryptography.hazmat.primitives.asymmetric import padding, utils
-    from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey, RSAPublicKey
-    from cryptography.hazmat.primitives import hashes
-    from PIL import Image  # used for image processing
-    import numpy as np     # used for more optimized arrays
-except:
-    raise ModuleNotFoundError("Missing a module. Did you run 'pip install -r modules.txt'?")
+import cryptography.exceptions
+from cryptography.hazmat.primitives.asymmetric import padding, utils
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey, RSAPublicKey
+from cryptography.hazmat.primitives import hashes
+from PIL import Image  # used for image processing
+import numpy as np     # used for more optimized arrays
 
 
 class UniSteg:

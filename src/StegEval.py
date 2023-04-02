@@ -1,11 +1,7 @@
 from json.encoder import INFINITY  # used for case where PSNR is undefined
 import math                        # used for log10
-
-try:
-    import numpy as np               # used to calculate averages and sums of Image pixels more efficiently
-    import matplotlib.pyplot as plt  # used to visually represent histograms
-except:
-    raise ModuleNotFoundError("Missing a module. Did you run 'pip install -r modules.txt'?")
+import numpy as np               # used to calculate averages and sums of Image pixels more efficiently
+import matplotlib.pyplot as plt  # used to visually represent histograms
 
 
 class StegEval:

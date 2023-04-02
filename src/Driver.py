@@ -11,7 +11,8 @@ try:
     from PIL import Image  # used for image processing
     from cryptography.hazmat.primitives import serialization
 except ModuleNotFoundError:
-    raise ModuleNotFoundError("Missing a module. Did you run 'pip install -r modules.txt'?")
+    print("Missing a module. Did you run 'pip install -r modules.txt'?")
+    sys.exit(-1)
 
 
 class Colors(str, Enum):
