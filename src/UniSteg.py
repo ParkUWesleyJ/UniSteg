@@ -2,6 +2,8 @@ import random
 import secrets
 import math
 
+import cryptography.exceptions
+
 try:
     from pathlib import Path
     from cryptography.hazmat.primitives import serialization
@@ -102,7 +104,7 @@ class UniSteg:
         # Hides encrypted seed in a pattern, then the message randomly according to the seed
         for i in range(len(secret_binary)):
             if i < 2048:
-                cipher_index = round(len(im_stego) / 2048) * i
+                cipher_index = len(im_stego) // 2048 * i
                 im_stego[cipher_index] = UniSteg.__fix_bit(im_stego[cipher_index], secret_binary[i])
                 used_indexes.append(cipher_index)
             else:
@@ -116,7 +118,7 @@ class UniSteg:
             UniSteg.__place_random_bit(im_stego, signature_binary, used_indexes, i)
 
         im_stego = im_stego.reshape(np.array(self.__image).shape)
-        Image.fromarray(im_stego).save('other/stego.png')
+        Image.fromarray(im_stego).save('stego.png')
 
     def extract(self):
         """
@@ -142,7 +144,7 @@ class UniSteg:
 
         # Gets encrypted seed binary string from image
         for i in range(2048):
-            cipher_index = round(len(im_flattened) / 2048) * i
+            cipher_index = len(im_flattened) // 2048 * i
             binary_encrypted_seed += str(im_flattened[cipher_index] % 2)
 
             used_indexes.append(cipher_index)
@@ -154,7 +156,7 @@ class UniSteg:
 
         # Creates a string of the least significant bits in the image that correlate to a secret message
         while num_zeros < 8 or len(message_binary_str) % 8 != 0:
-            message_binary, num_zeros = UniSteg.__extract_random_bit(
+            message_binary_str, num_zeros = UniSteg.__extract_random_bit(
                 im_flattened,
                 message_binary_str,
                 used_indexes,

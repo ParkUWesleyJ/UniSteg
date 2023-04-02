@@ -2,6 +2,7 @@ from UniSteg import UniSteg
 from StegEval import StegEval
 from UserKeys import *
 from enum import Enum
+import requests
 
 import os.path
 from json.encoder import INFINITY  # used for case where PSNR is undefined
@@ -92,7 +93,11 @@ class Driver:
             algorithm.conceal(message_to_conceal)
             print("Steg-image created.")
         if processing_type.startswith('e'):
-            print("Extracted message:", algorithm.extract())
+            try:
+                extracted_message = algorithm.extract()
+                print("Extracted message:", extracted_message)
+            except ValueError as err:
+                print(Colors.RED + str(err) + Colors.WHITE)
 
     ########################################################################
 
@@ -303,7 +308,7 @@ class Driver:
     @staticmethod
     def get_private_key():
         """
-        Gets the private key. If it, public key, or uuid not found, recreate everything
+        Gets the private key. If UUID/private key not found, reinitialize user information
 
         :return: RSA Private key
         :rtype: :class:`cryptography.hazmat.primitives.asymmetric.rsa.RSAPrivateKey`
@@ -311,22 +316,37 @@ class Driver:
         Path("encrypt_info/").mkdir(parents=True, exist_ok=True)
 
         private_key_file = Path("encrypt_info/private.pem")
-        public_key_file = Path("encrypt_info/public.pem")
-        uuid_file = Path("encrypt_info/your_uuid")
+        uuid_file = Path("encrypt_info/uuid.UUID")
 
-        if not private_key_file.is_file() or not public_key_file.is_file() or not uuid_file.is_file():
+        if not private_key_file.is_file() or not uuid_file.is_file():
             keys = UserKeys()
 
-            uuid_file.open("w").write(str(keys.get_uuid()))
-            private_key_file.open("w").write(keys.get_private_bytes().decode("utf-8"))
-            public_key_file.open("w").write(keys.get_public_bytes().decode("utf-8"))
+            user_data = {
+                "uuid": str(keys.get_uuid()),
+                "public_key": keys.get_public_bytes()
+            }
 
-        # Gets private key tied to user for signing and decryption
-        with open(private_key_file, "rb") as key_file:
-            return serialization.load_pem_private_key(
-                key_file.read(),
-                password=None
-            )
+            response = requests.post("https://api-unisteg.glitch.me/users", user_data)
+
+            if response.status_code != 200:
+                print(Colors.RED + response.json()["response"] + Colors.WHITE)
+                Driver.main()
+            else:
+                private_key_file.open("w").write(keys.get_private_bytes().decode("ascii"))
+                uuid_file.open("w").write(str(keys.get_uuid()))
+        else:
+            response = requests.get("https://api-unisteg.glitch.me/user?uuid=" + uuid_file.open("r").read())
+
+            if response.status_code != 200:
+                print(Colors.RED + response.json()["response"] + Colors.WHITE)
+                Driver.main()
+
+            # Gets private key tied to user for signing and decryption
+            with open(private_key_file, "rb") as key_file:
+                return serialization.load_pem_private_key(
+                    key_file.read(),
+                    password=None
+                )
 
     @staticmethod
     def get_public_key(processing_type):
@@ -352,20 +372,17 @@ class Driver:
                 "> "
             ).lower()
 
-            sender_uuid = Path("encrypt_info/your_uuid")
+            response = requests.get("https://api-unisteg.glitch.me/user?uuid=" + uuid_input)
 
-            # Checks if UUID exists (currently only user's UUID)
-            if sender_uuid.open("r").read() == uuid_input:
-                # Gets public key tied to UUID for verification
-                with open("encrypt_info/public.pem", "rb") as public_key_file:
-                    return serialization.load_pem_public_key(
-                        public_key_file.read()
-                    )
+            if response.status_code != 200:
+                print(Colors.RED + response.json()["response"] + Colors.WHITE)
+            else:
+                return serialization.load_pem_public_key(
+                    bytes(response.json()["response"][uuid_input]["public_key"].encode("ascii"))
+                )
 
             if uuid_input.startswith('h') or uuid_input.startswith('q'):
                 return uuid_input
-
-            print(Colors.RED + "Invalid UUID.\n" + Colors.WHITE)
 
 
 if __name__ == "__main__":
